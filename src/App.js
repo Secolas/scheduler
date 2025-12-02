@@ -11,6 +11,7 @@ import {
   Columns,
   RotateCcw,
   Eraser,
+  CalendarDays,
 } from "lucide-react";
 
 export default function WeeklyScheduler() {
@@ -177,9 +178,27 @@ export default function WeeklyScheduler() {
   const dragNode = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Refs for scrolling to today
+  const dayRefs = useRef({});
+
   useEffect(() => {
     localStorage.setItem("mySchedule", JSON.stringify(schedule));
   }, [schedule]);
+
+  // --- Auto-Focus Today ---
+  useEffect(() => {
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+
+    setTimeout(() => {
+      if (dayRefs.current[today]) {
+        dayRefs.current[today].scrollIntoView({
+          behavior: "smooth",
+          block: "start", // Aligns top of element to top of visible area (for grid view)
+          inline: "start", // Aligns left of element to left of visible area (for landscape view)
+        });
+      }
+    }, 300); // Increased timeout slightly to ensure layout is ready
+  }, []);
 
   // Rendering Order
   const daysOrder = [
@@ -209,20 +228,23 @@ export default function WeeklyScheduler() {
     return styles[day] || "bg-white border-gray-200 text-gray-900";
   };
 
-  // --- Actions: Reset & Clear ---
+  // --- Actions: Reset Logic ---
 
   const handleStartNewWeek = () => {
     if (
       !window.confirm(
-        "Start a new week? This will uncheck all completed tasks so you can do them again."
+        "Start a new WEEK? This checks off daily tasks but KEEPS monthly tasks."
       )
     )
       return;
 
     setSchedule((prev) => {
-      const newSchedule = {};
-      Object.keys(prev).forEach((dayKey) => {
-        const day = prev[dayKey];
+      const newSchedule = { ...prev };
+      Object.keys(newSchedule).forEach((dayKey) => {
+        // Skip Monthly!
+        if (dayKey === "Monthly") return;
+
+        const day = newSchedule[dayKey];
         newSchedule[dayKey] = {
           ...day,
           plans: day.plans.map((plan) => ({
@@ -234,6 +256,30 @@ export default function WeeklyScheduler() {
           })),
         };
       });
+      return newSchedule;
+    });
+  };
+
+  const handleStartNewMonth = () => {
+    if (
+      !window.confirm("Start a new MONTH? This checks off the Monthly tasks.")
+    )
+      return;
+
+    setSchedule((prev) => {
+      const newSchedule = { ...prev };
+      const monthlyData = newSchedule["Monthly"];
+
+      newSchedule["Monthly"] = {
+        ...monthlyData,
+        plans: monthlyData.plans.map((plan) => ({
+          ...plan,
+          items: plan.items.map((item) => ({
+            ...item,
+            completed: false, // Uncheck monthly items
+          })),
+        })),
+      };
       return newSchedule;
     });
   };
@@ -585,11 +631,20 @@ export default function WeeklyScheduler() {
           <div className="flex flex-wrap gap-2 sm:ml-auto">
             <button
               onClick={handleStartNewWeek}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
-              title="Uncheck all tasks"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+              title="Uncheck weekly tasks"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Start New Week</span>
+              <span>New Week</span>
+            </button>
+
+            <button
+              onClick={handleStartNewMonth}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+              title="Uncheck monthly tasks"
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>New Month</span>
             </button>
 
             <div className="flex bg-gray-200 p-1 rounded-lg">
@@ -634,13 +689,16 @@ export default function WeeklyScheduler() {
           const dayData = schedule[day];
           const activePlan = dayData.plans[dayData.activePlanIndex];
           const items = activePlan.items;
+          const isToday =
+            day === new Date().toLocaleDateString("en-US", { weekday: "long" });
 
           return (
             <div
               key={day}
+              ref={(el) => (dayRefs.current[day] = el)}
               className={`${cardClasses(day)} ${
                 isDragging ? "opacity-90" : ""
-              }`}
+              } ${isToday ? "ring-2 ring-offset-2 ring-indigo-500" : ""}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDropOnEmpty(e, day)}
               onClick={(e) => e.stopPropagation()}
@@ -650,8 +708,13 @@ export default function WeeklyScheduler() {
                 className={`${headerClasses} border-b border-black/5 flex flex-col`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="font-bold uppercase tracking-wider opacity-90 truncate">
+                  <h2 className="font-bold uppercase tracking-wider opacity-90 truncate flex items-center gap-2">
                     {day}
+                    {isToday && (
+                      <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full tracking-normal normal-case">
+                        Today
+                      </span>
+                    )}
                   </h2>
                   <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-white/50 border border-black/5">
                     {items.length}
