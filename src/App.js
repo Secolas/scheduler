@@ -1068,7 +1068,12 @@ export default function WeeklyScheduler() {
                               isDarkMode ? "bg-black/20" : "bg-white/50"
                             }`}
                           >
-                            <Clock className="w-3 h-3" /> {item.time}
+                            {day === "Monthly" ? (
+                              <CalendarDays className="w-3 h-3" />
+                            ) : (
+                              <Clock className="w-3 h-3" />
+                            )}{" "}
+                            {item.time}
                           </div>
                         )}
                       </div>
@@ -1272,9 +1277,13 @@ export default function WeeklyScheduler() {
                     isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white"
                   }`}
                 >
-                  <Clock className="w-4 h-4 text-gray-400" />
+                  {activeModal.day === "Monthly" ? (
+                    <CalendarDays className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-gray-400" />
+                  )}
                   <input
-                    type="time"
+                    type={activeModal.day === "Monthly" ? "date" : "time"}
                     value={modalTime}
                     onChange={(e) => setModalTime(e.target.value)}
                     className="bg-transparent outline-none w-full text-sm text-gray-500"
@@ -1310,14 +1319,16 @@ export default function WeeklyScheduler() {
                       <Save className="w-4 h-4" /> Save
                     </button>
                     <div className="flex gap-2">
-                      <button
-                        onClick={moveTaskToNextDay}
-                        className={`flex-1 py-3 font-medium rounded-xl border flex justify-center gap-2 ${
-                          isDarkMode ? "border-slate-600" : "border-gray-200"
-                        }`}
-                      >
-                        <ArrowRight className="w-4 h-4" /> Tomorrow
-                      </button>
+                      {activeModal.day !== "Monthly" && (
+                        <button
+                          onClick={moveTaskToNextDay}
+                          className={`flex-1 py-3 font-medium rounded-xl border flex justify-center gap-2 ${
+                            isDarkMode ? "border-slate-600" : "border-gray-200"
+                          }`}
+                        >
+                          <ArrowRight className="w-4 h-4" /> Tomorrow
+                        </button>
+                      )}
                       <button
                         onClick={handleModalDelete}
                         className="flex-1 py-3 font-medium rounded-xl text-red-500 border border-red-200 flex justify-center gap-2"
