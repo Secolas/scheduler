@@ -12,195 +12,116 @@ import {
   RotateCcw,
   Eraser,
   CalendarDays,
+  PlusCircle,
+  Save,
+  Moon,
+  Sun,
+  Download,
+  Upload,
+  Clock,
+  ArrowRight,
+  Tag,
+  PartyPopper,
+  GalleryHorizontal,
+  MoreVertical,
+  FileJson,
+  ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 
 export default function WeeklyScheduler() {
   // --- State Management ---
-
-  const [viewMode, setViewMode] = useState("landscape"); // 'grid' | 'landscape'
+  const [viewMode, setViewMode] = useState("landscape"); // 'grid' | 'landscape' | 'slide'
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Initial Data Configuration
   const initialSchedule = {
-    Sunday: {
-      activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 1, text: "Church", completed: false },
-            { id: 2, text: "Small Group", completed: false },
-            { id: 3, text: "Grocery", completed: false },
-            { id: 4, text: "Meal prep", completed: false },
-            { id: 5, text: "Couple time", completed: false },
-          ],
-        },
-      ],
-    },
     Monday: {
       activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 6, text: "Work 4", completed: false },
-            { id: 7, text: "Make Food w/ Juliet 5-6", completed: false },
-            { id: 8, text: "ASL Class (Leave 6:10)", completed: false },
-            { id: 9, text: "Games", completed: false },
-          ],
-        },
-      ],
+      plans: [{ id: "p1", name: "Main", items: [] }],
     },
     Tuesday: {
       activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 10, text: "Work *", completed: false },
-            { id: 11, text: "Gym 5-6", completed: false },
-            { id: 12, text: "Shower 6-6:10", completed: false },
-            { id: 13, text: "Dinner 6:10-6:50", completed: false },
-            { id: 14, text: "YA Small group 7:30", completed: false },
-          ],
-        },
-      ],
+      plans: [{ id: "p1", name: "Main", items: [] }],
     },
     Wednesday: {
       activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 15, text: "Work 4", completed: false },
-            { id: 16, text: "Gym 5-6", completed: false },
-            { id: 17, text: "Volley 6-7", completed: false },
-            { id: 18, text: "Dinner 7-8", completed: false },
-            { id: 19, text: "Meal prep 8-9", completed: false },
-            { id: 20, text: "TV sleep", completed: false },
-          ],
-        },
-      ],
+      plans: [{ id: "p1", name: "Main", items: [] }],
     },
     Thursday: {
       activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 21, text: "Work 4", completed: false },
-            { id: 22, text: "Chores 5-7", completed: false },
-            { id: 23, text: "Juliet brings food 7", completed: false },
-            { id: 24, text: "Movie", completed: false },
-          ],
-        },
-      ],
+      plans: [{ id: "p1", name: "Main", items: [] }],
     },
     Friday: {
       activePlanIndex: 0,
       plans: [
-        {
-          id: "p1",
-          name: "Plan A",
-          items: [
-            { id: 25, text: "Work 2", completed: false },
-            { id: 26, text: "Beach/Gym", completed: false },
-            { id: 27, text: "Bible Study", completed: false },
-            { id: 28, text: "Game", completed: false },
-          ],
-        },
-        {
-          id: "p2",
-          name: "Plan B",
-          items: [
-            { id: 29, text: "Work 4", completed: false },
-            { id: 30, text: "Date", completed: false },
-            { id: 31, text: "Bible", completed: false },
-            { id: 32, text: "Game w/ J", completed: false },
-          ],
-        },
+        { id: "p1", name: "Plan A", items: [] },
+        { id: "p2", name: "Plan B", items: [] },
       ],
     },
     Saturday: {
       activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 33, text: "Relax", completed: false },
-            { id: 34, text: "Bible study", completed: false },
-            { id: 35, text: "Career study", completed: false },
-            { id: 36, text: "SOCCER 1pm", completed: false },
-            { id: 37, text: "Chores *", completed: false },
-            { id: 38, text: "Juliet house/Dinner", completed: false },
-          ],
-        },
-      ],
+      plans: [{ id: "p1", name: "Main", items: [] }],
+    },
+    Sunday: {
+      activePlanIndex: 0,
+      plans: [{ id: "p1", name: "Main", items: [] }],
     },
     Monthly: {
       activePlanIndex: 0,
-      plans: [
-        {
-          id: "p1",
-          name: "Main",
-          items: [
-            { id: 39, text: "Haircut", completed: false },
-            { id: 40, text: "Car wash", completed: false },
-            { id: 41, text: "Dog wash", completed: false },
-            { id: 42, text: "Laundry", completed: false },
-          ],
-        },
-      ],
+      plans: [{ id: "p1", name: "Main", items: [] }],
     },
   };
-
-  // --- LOAD & SAVE LOGIC ---
 
   const [schedule, setSchedule] = useState(() => {
     const savedSchedule = localStorage.getItem("mySchedule");
     return savedSchedule ? JSON.parse(savedSchedule) : initialSchedule;
   });
 
-  const [newItems, setNewItems] = useState({});
+  // Load Dark Mode preference
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") setIsDarkMode(true);
+  }, []);
 
-  // Editing States
-  const [editingItem, setEditingItem] = useState(null);
-  const [editValue, setEditValue] = useState("");
-  const [editingPlan, setEditingPlan] = useState(null);
-  const [editPlanValue, setEditPlanValue] = useState("");
-
-  const dragItem = useRef(null);
-  const dragNode = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Refs for scrolling to today
-  const dayRefs = useRef({});
-
+  // Persist Data
   useEffect(() => {
     localStorage.setItem("mySchedule", JSON.stringify(schedule));
   }, [schedule]);
 
-  // --- Auto-Focus Today ---
+  // Persist Theme
   useEffect(() => {
-    const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+  }, [isDarkMode]);
 
-    setTimeout(() => {
-      if (dayRefs.current[today]) {
-        dayRefs.current[today].scrollIntoView({
-          behavior: "smooth",
-          block: "start", // Aligns top of element to top of visible area (for grid view)
-          inline: "start", // Aligns left of element to left of visible area (for landscape view)
-        });
-      }
-    }, 300); // Increased timeout slightly to ensure layout is ready
-  }, []);
+  // --- UI State ---
+  const [activeModal, setActiveModal] = useState({
+    isOpen: false,
+    mode: "add",
+    day: null,
+    item: null,
+  });
 
-  // Rendering Order
+  // Dropdown Menus State
+  const [openMenu, setOpenMenu] = useState(null); // 'reset' | 'data' | null
+
+  // Form Inputs
+  const [modalInput, setModalInput] = useState("");
+  const [modalTime, setModalTime] = useState("");
+  const [modalColor, setModalColor] = useState("default");
+  const modalInputRef = useRef(null);
+
+  // Plan Renaming
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [editPlanValue, setEditPlanValue] = useState("");
+
+  // Drag & Drop
+  const dragItem = useRef(null);
+  const dragNode = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dayRefs = useRef({});
+
+  // Render Order
   const daysOrder = [
     "Monday",
     "Tuesday",
@@ -212,104 +133,147 @@ export default function WeeklyScheduler() {
     "Monthly",
   ];
 
-  // --- Helper Functions ---
-
-  const getCardStyle = (day) => {
-    const styles = {
-      Sunday: "bg-rose-50 border-rose-200 text-rose-900",
-      Monday: "bg-orange-50 border-orange-200 text-orange-900",
-      Tuesday: "bg-amber-50 border-amber-200 text-amber-900",
-      Wednesday: "bg-emerald-50 border-emerald-200 text-emerald-900",
-      Thursday: "bg-teal-50 border-teal-200 text-teal-900",
-      Friday: "bg-cyan-50 border-cyan-200 text-cyan-900",
-      Saturday: "bg-indigo-50 border-indigo-200 text-indigo-900",
-      Monthly: "bg-slate-100 border-slate-200 text-slate-800",
-    };
-    return styles[day] || "bg-white border-gray-200 text-gray-900";
+  const colors = {
+    default: {
+      bg: "bg-gray-100",
+      border: "border-gray-200",
+      dot: "bg-gray-400",
+    },
+    red: { bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500" },
+    blue: { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500" },
+    green: {
+      bg: "bg-green-50",
+      border: "border-green-200",
+      dot: "bg-green-500",
+    },
+    orange: {
+      bg: "bg-orange-50",
+      border: "border-orange-200",
+      dot: "bg-orange-500",
+    },
+    purple: {
+      bg: "bg-purple-50",
+      border: "border-purple-200",
+      dot: "bg-purple-500",
+    },
   };
 
-  // --- Actions: Reset Logic ---
+  // --- Helper Functions ---
 
+  // Auto-Scroll to Today
+  useEffect(() => {
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    setTimeout(() => {
+      if (dayRefs.current[today]) {
+        dayRefs.current[today].scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "start",
+        });
+      }
+    }, 300);
+  }, [viewMode]);
+
+  const getProgress = (items) => {
+    if (!items || items.length === 0) return 0;
+    const completed = items.filter((i) => i.completed).length;
+    return Math.round((completed / items.length) * 100);
+  };
+
+  // --- File Backup System ---
+  const handleExport = () => {
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(schedule));
+    const downloadAnchorNode = document.createElement("a");
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "my_schedule_backup.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    setOpenMenu(null);
+  };
+
+  const handleImport = (event) => {
+    const fileReader = new FileReader();
+    fileReader.readAsText(event.target.files[0], "UTF-8");
+    fileReader.onload = (e) => {
+      try {
+        const importedSchedule = JSON.parse(e.target.result);
+        if (importedSchedule && importedSchedule.Monday) {
+          if (
+            window.confirm(
+              "This will overwrite your current schedule. Are you sure?"
+            )
+          ) {
+            setSchedule(importedSchedule);
+          }
+        } else {
+          alert("Invalid file format");
+        }
+      } catch (err) {
+        alert("Error reading file");
+      }
+    };
+    setOpenMenu(null);
+  };
+
+  // --- Logic: Reset & Clear ---
   const handleStartNewWeek = () => {
-    if (
-      !window.confirm(
-        "Start a new WEEK? This checks off daily tasks but KEEPS monthly tasks."
-      )
-    )
-      return;
-
+    if (!window.confirm("Start a new WEEK? This unchecks daily tasks.")) return;
     setSchedule((prev) => {
       const newSchedule = { ...prev };
       Object.keys(newSchedule).forEach((dayKey) => {
-        // Skip Monthly!
         if (dayKey === "Monthly") return;
-
         const day = newSchedule[dayKey];
         newSchedule[dayKey] = {
           ...day,
           plans: day.plans.map((plan) => ({
             ...plan,
-            items: plan.items.map((item) => ({
-              ...item,
-              completed: false, // Uncheck everything
-            })),
+            items: plan.items.map((item) => ({ ...item, completed: false })),
           })),
         };
       });
       return newSchedule;
     });
+    setOpenMenu(null);
   };
 
   const handleStartNewMonth = () => {
-    if (
-      !window.confirm("Start a new MONTH? This checks off the Monthly tasks.")
-    )
+    if (!window.confirm("Start a new MONTH? This unchecks monthly tasks."))
       return;
-
     setSchedule((prev) => {
       const newSchedule = { ...prev };
       const monthlyData = newSchedule["Monthly"];
-
       newSchedule["Monthly"] = {
         ...monthlyData,
         plans: monthlyData.plans.map((plan) => ({
           ...plan,
-          items: plan.items.map((item) => ({
-            ...item,
-            completed: false, // Uncheck monthly items
-          })),
+          items: plan.items.map((item) => ({ ...item, completed: false })),
         })),
       };
       return newSchedule;
     });
+    setOpenMenu(null);
   };
 
   const handleClearAll = () => {
-    if (
-      !window.confirm(
-        "⚠️ Are you sure you want to delete ALL tasks? This cannot be undone."
-      )
-    )
-      return;
-
+    if (!window.confirm("⚠️ Delete ALL tasks? Cannot be undone.")) return;
     setSchedule((prev) => {
       const newSchedule = {};
       Object.keys(prev).forEach((dayKey) => {
         const day = prev[dayKey];
         newSchedule[dayKey] = {
           ...day,
-          plans: day.plans.map((plan) => ({
-            ...plan,
-            items: [], // Empty array
-          })),
+          plans: day.plans.map((plan) => ({ ...plan, items: [] })),
         };
       });
       return newSchedule;
     });
+    setOpenMenu(null);
   };
 
-  // --- Task Completion Logic ---
-
+  // --- Core Task Logic ---
   const toggleCompletion = (day, planIndex, itemId) => {
     setSchedule((prev) => {
       const dayData = prev[day];
@@ -317,25 +281,122 @@ export default function WeeklyScheduler() {
       const updatedItems = plan.items.map((item) =>
         item.id === itemId ? { ...item, completed: !item.completed } : item
       );
-
       const updatedPlans = [...dayData.plans];
       updatedPlans[planIndex] = { ...plan, items: updatedItems };
-
-      return {
-        ...prev,
-        [day]: { ...dayData, plans: updatedPlans },
-      };
+      return { ...prev, [day]: { ...dayData, plans: updatedPlans } };
     });
   };
 
-  // --- Plan Management ---
+  const moveTaskToNextDay = () => {
+    if (!activeModal.item || !activeModal.day) return;
+    const currentDayIndex = daysOrder.indexOf(activeModal.day);
+    if (currentDayIndex === -1 || currentDayIndex >= daysOrder.length - 1) {
+      alert("Cannot move further.");
+      return;
+    }
 
+    const nextDay = daysOrder[currentDayIndex + 1];
+
+    setSchedule((prev) => {
+      const newState = { ...prev };
+
+      const currentDayData = newState[activeModal.day];
+      const currentPlan = currentDayData.plans[currentDayData.activePlanIndex];
+      currentPlan.items = currentPlan.items.filter(
+        (i) => i.id !== activeModal.item.id
+      );
+
+      const nextDayData = newState[nextDay];
+      const nextPlanIndex = nextDayData.activePlanIndex;
+      const nextPlan = nextDayData.plans[nextPlanIndex];
+
+      const movedItem = { ...activeModal.item, completed: false };
+      nextPlan.items = [...nextPlan.items, movedItem];
+
+      return newState;
+    });
+
+    closeModal();
+  };
+
+  // --- Modal Logic ---
+  const openAddModal = (day) => {
+    setModalInput("");
+    setModalTime("");
+    setModalColor("default");
+    setActiveModal({ isOpen: true, mode: "add", day, item: null });
+  };
+
+  const openEditModal = (day, item) => {
+    setModalInput(item.text);
+    setModalTime(item.time || "");
+    setModalColor(item.color || "default");
+    setActiveModal({ isOpen: true, mode: "edit", day, item });
+  };
+
+  const closeModal = () => {
+    setActiveModal({ isOpen: false, mode: "add", day: null, item: null });
+  };
+
+  const handleModalSave = () => {
+    if (!modalInput.trim() || !activeModal.day) return;
+
+    const { day, mode, item } = activeModal;
+
+    setSchedule((prev) => {
+      const dayData = prev[day];
+      const activePlan = dayData.plans[dayData.activePlanIndex];
+      const updatedPlans = [...dayData.plans];
+
+      const itemData = {
+        text: modalInput,
+        time: modalTime,
+        color: modalColor,
+      };
+
+      let newItems;
+      if (mode === "add") {
+        newItems = [
+          ...activePlan.items,
+          { id: Date.now(), ...itemData, completed: false },
+        ];
+      } else {
+        newItems = activePlan.items.map((i) =>
+          i.id === item.id ? { ...i, ...itemData } : i
+        );
+      }
+
+      updatedPlans[dayData.activePlanIndex] = {
+        ...activePlan,
+        items: newItems,
+      };
+      return { ...prev, [day]: { ...dayData, plans: updatedPlans } };
+    });
+    closeModal();
+  };
+
+  const handleModalDelete = () => {
+    if (!activeModal.item || !activeModal.day) return;
+    const { day, item } = activeModal;
+    setSchedule((prev) => {
+      const dayData = prev[day];
+      const activePlan = dayData.plans[dayData.activePlanIndex];
+      const updatedPlans = [...dayData.plans];
+      updatedPlans[dayData.activePlanIndex] = {
+        ...activePlan,
+        items: activePlan.items.filter((i) => i.id !== item.id),
+      };
+      return { ...prev, [day]: { ...dayData, plans: updatedPlans } };
+    });
+    closeModal();
+  };
+
+  // --- Plan Management ---
   const handleAddPlan = (day) => {
     setSchedule((prev) => {
       const dayData = prev[day];
       const newPlanIndex = dayData.plans.length;
-      const nextChar = String.fromCharCode(65 + newPlanIndex); // A, B, C...
-
+      const nextChar = String.fromCharCode(65 + newPlanIndex);
       return {
         ...prev,
         [day]: {
@@ -343,11 +404,7 @@ export default function WeeklyScheduler() {
           activePlanIndex: newPlanIndex,
           plans: [
             ...dayData.plans,
-            {
-              id: `p${Date.now()}`,
-              name: `Plan ${nextChar}`,
-              items: [],
-            },
+            { id: `p${Date.now()}`, name: `Plan ${nextChar}`, items: [] },
           ],
         },
       };
@@ -356,26 +413,18 @@ export default function WeeklyScheduler() {
 
   const handleRemovePlan = (day, planIndex, e) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this plan and all its tasks?")) return;
-
+    if (!window.confirm("Delete this plan?")) return;
     setSchedule((prev) => {
       const dayData = prev[day];
       const newPlans = dayData.plans.filter((_, idx) => idx !== planIndex);
-
       let newActiveIndex = dayData.activePlanIndex;
-      if (planIndex === dayData.activePlanIndex) {
+      if (planIndex === dayData.activePlanIndex)
         newActiveIndex = Math.max(0, planIndex - 1);
-      } else if (planIndex < dayData.activePlanIndex) {
+      else if (planIndex < dayData.activePlanIndex)
         newActiveIndex = dayData.activePlanIndex - 1;
-      }
-
       return {
         ...prev,
-        [day]: {
-          ...dayData,
-          activePlanIndex: newActiveIndex,
-          plans: newPlans,
-        },
+        [day]: { ...dayData, activePlanIndex: newActiveIndex, plans: newPlans },
       };
     });
   };
@@ -383,91 +432,8 @@ export default function WeeklyScheduler() {
   const setActivePlan = (day, index) => {
     setSchedule((prev) => ({
       ...prev,
-      [day]: {
-        ...prev[day],
-        activePlanIndex: index,
-      },
+      [day]: { ...prev[day], activePlanIndex: index },
     }));
-  };
-
-  // --- Item Management (CRUD) ---
-
-  const handleAddItem = (day) => {
-    const val = newItems[day] || "";
-    if (!val.trim()) return;
-
-    setSchedule((prev) => {
-      const dayData = prev[day];
-      const activePlan = dayData.plans[dayData.activePlanIndex];
-
-      const updatedPlans = [...dayData.plans];
-      updatedPlans[dayData.activePlanIndex] = {
-        ...activePlan,
-        items: [
-          ...activePlan.items,
-          { id: Date.now(), text: val, completed: false },
-        ],
-      };
-
-      return {
-        ...prev,
-        [day]: { ...dayData, plans: updatedPlans },
-      };
-    });
-
-    setNewItems((prev) => ({ ...prev, [day]: "" }));
-  };
-
-  const handleRemoveItem = (day, itemId) => {
-    setSchedule((prev) => {
-      const dayData = prev[day];
-      const activePlan = dayData.plans[dayData.activePlanIndex];
-
-      const updatedPlans = [...dayData.plans];
-      updatedPlans[dayData.activePlanIndex] = {
-        ...activePlan,
-        items: activePlan.items.filter((item) => item.id !== itemId),
-      };
-
-      return {
-        ...prev,
-        [day]: { ...dayData, plans: updatedPlans },
-      };
-    });
-  };
-
-  // --- Renaming Logic ---
-
-  const startEditing = (day, planIndex, item) => {
-    setEditingItem({ day, planIndex, itemId: item.id });
-    setEditValue(item.text);
-  };
-
-  const saveEdit = () => {
-    if (!editingItem || !editValue.trim()) {
-      setEditingItem(null);
-      return;
-    }
-
-    setSchedule((prev) => {
-      const { day, planIndex, itemId } = editingItem;
-      const dayData = prev[day];
-      const plan = dayData.plans[planIndex];
-
-      const updatedPlans = [...dayData.plans];
-      updatedPlans[planIndex] = {
-        ...plan,
-        items: plan.items.map((item) =>
-          item.id === itemId ? { ...item, text: editValue } : item
-        ),
-      };
-
-      return {
-        ...prev,
-        [day]: { ...dayData, plans: updatedPlans },
-      };
-    });
-    setEditingItem(null);
   };
 
   const startEditingPlan = (day, planIndex, currentName) => {
@@ -480,37 +446,27 @@ export default function WeeklyScheduler() {
       setEditingPlan(null);
       return;
     }
-
     setSchedule((prev) => {
       const { day, planIndex } = editingPlan;
-      const dayData = prev[day];
-
-      const updatedPlans = [...dayData.plans];
+      const updatedPlans = [...prev[day].plans];
       updatedPlans[planIndex] = {
         ...updatedPlans[planIndex],
         name: editPlanValue,
       };
-
-      return {
-        ...prev,
-        [day]: { ...dayData, plans: updatedPlans },
-      };
+      return { ...prev, [day]: { ...prev[day], plans: updatedPlans } };
     });
     setEditingPlan(null);
   };
 
   // --- Drag and Drop ---
-
   const handleDragStart = (e, item, day, planIndex, itemIndex) => {
     dragItem.current = { item, day, planIndex, itemIndex };
     dragNode.current = e.target;
     setTimeout(() => setIsDragging(true), 0);
-    e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragEnter = (e, targetDay, targetPlanIndex, targetItemIndex) => {
     if (!dragItem.current) return;
-
     const source = dragItem.current;
     if (
       source.day === targetDay &&
@@ -521,17 +477,16 @@ export default function WeeklyScheduler() {
 
     setSchedule((prev) => {
       const newSchedule = { ...prev };
-      const getPlanItems = (d, pIdx) => newSchedule[d].plans[pIdx].items;
-
-      const sourceItems = [...getPlanItems(source.day, source.planIndex)];
+      const sourceItems = [
+        ...newSchedule[source.day].plans[source.planIndex].items,
+      ];
       const [removed] = sourceItems.splice(source.itemIndex, 1);
-
       newSchedule[source.day].plans[source.planIndex].items = sourceItems;
 
       const targetItems =
         source.day === targetDay && source.planIndex === targetPlanIndex
           ? sourceItems
-          : [...getPlanItems(targetDay, targetPlanIndex)];
+          : [...newSchedule[targetDay].plans[targetPlanIndex].items];
 
       targetItems.splice(targetItemIndex, 0, removed);
       newSchedule[targetDay].plans[targetPlanIndex].items = targetItems;
@@ -542,7 +497,6 @@ export default function WeeklyScheduler() {
         planIndex: targetPlanIndex,
         itemIndex: targetItemIndex,
       };
-
       return newSchedule;
     });
   };
@@ -550,12 +504,9 @@ export default function WeeklyScheduler() {
   const handleDropOnEmpty = (e, targetDay) => {
     e.preventDefault();
     if (!dragItem.current) return;
-
     const targetPlanIndex = schedule[targetDay].activePlanIndex;
     if (schedule[targetDay].plans[targetPlanIndex].items.length > 0) return;
-
     const source = dragItem.current;
-
     setSchedule((prev) => {
       const newSchedule = { ...prev };
       const sourceItems = [
@@ -563,12 +514,9 @@ export default function WeeklyScheduler() {
       ];
       const [removed] = sourceItems.splice(source.itemIndex, 1);
       newSchedule[source.day].plans[source.planIndex].items = sourceItems;
-
       newSchedule[targetDay].plans[targetPlanIndex].items = [removed];
-
       return newSchedule;
     });
-
     dragItem.current = {
       ...dragItem.current,
       day: targetDay,
@@ -577,113 +525,249 @@ export default function WeeklyScheduler() {
     };
   };
 
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    dragItem.current = null;
-    dragNode.current = null;
-  };
+  const handleDragEnd = () => setIsDragging(false);
 
-  // --- Render Styles ---
+  // --- Styles ---
   const containerClasses =
-    viewMode === "landscape"
-      ? "flex flex-row gap-2 overflow-x-auto pb-4 snap-x"
-      : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6";
+    viewMode === "landscape" || viewMode === "slide"
+      ? `flex flex-row gap-4 overflow-x-auto pb-8 snap-x ${
+          viewMode === "slide" ? "snap-mandatory" : ""
+        } px-4`
+      : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4";
 
-  const cardClasses = (day) =>
-    viewMode === "landscape"
-      ? `min-w-[200px] w-[200px] md:min-w-[240px] md:w-full flex-shrink-0 snap-start rounded-xl shadow-sm border flex flex-col transition-all duration-300 ${getCardStyle(
-          day
-        )}`
-      : `rounded-2xl shadow-sm border-2 flex flex-col transition-all duration-300 ${getCardStyle(
-          day
-        )}`;
-
-  const textClasses = viewMode === "landscape" ? "text-xs" : "text-sm";
-  const headerClasses =
-    viewMode === "landscape" ? "p-2 text-sm" : "p-4 text-lg";
+  const cardClasses = (day) => `
+    flex flex-col rounded-2xl shadow-sm border transition-all duration-300 relative overflow-hidden
+    ${viewMode === "landscape" ? "min-w-[280px] w-[280px] snap-center" : ""}
+    ${viewMode === "slide" ? "min-w-full w-full snap-center" : ""}
+    ${viewMode === "grid" ? "w-full" : ""}
+    ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}
+  `;
 
   return (
     <div
-      className="min-h-screen bg-stone-50 font-sans p-4"
+      className={`min-h-screen font-sans transition-colors duration-300 ${
+        isDarkMode ? "bg-slate-900 text-slate-100" : "bg-stone-50 text-gray-900"
+      }`}
       onClick={() => {
-        if (editingItem) saveEdit();
         if (editingPlan) savePlanEdit();
+        if (openMenu) setOpenMenu(null);
       }}
     >
-      {/* Top Control Bar */}
-      <div className="max-w-[1600px] mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-          <div className="flex items-center">
-            <div className="p-2 bg-white rounded-lg shadow-sm mr-3">
-              <Calendar className="w-6 h-6 text-indigo-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
-                My Schedule
-              </h1>
-              <p className="text-xs text-gray-500">
-                Drag to reorder • Click text to edit
-              </p>
-            </div>
+      {/* --- Minimalist Header --- */}
+      <div className="max-w-[1600px] mx-auto p-4 mb-2 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 bg-opacity-90 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div
+            className={`p-2 rounded-xl shadow-sm ${
+              isDarkMode
+                ? "bg-indigo-900 text-indigo-300"
+                : "bg-white text-indigo-600"
+            }`}
+          >
+            <Calendar className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">My Schedule</h1>
+            <p
+              className={`text-xs ${
+                isDarkMode ? "text-slate-400" : "text-gray-500"
+              }`}
+            >
+              Plan your success
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Theme */}
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={`p-2 rounded-lg transition-colors ${
+              isDarkMode
+                ? "bg-slate-700 hover:bg-slate-600"
+                : "bg-white hover:bg-gray-100 shadow-sm"
+            }`}
+          >
+            {isDarkMode ? (
+              <Sun className="w-5 h-5 text-yellow-400" />
+            ) : (
+              <Moon className="w-5 h-5 text-slate-600" />
+            )}
+          </button>
+
+          {/* View Mode Toggle */}
+          <div
+            className={`flex p-1 rounded-lg ${
+              isDarkMode ? "bg-slate-800" : "bg-gray-200"
+            }`}
+          >
+            <button
+              onClick={() => setViewMode("slide")}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === "slide"
+                  ? isDarkMode
+                    ? "bg-slate-600 text-white"
+                    : "bg-white shadow-sm text-indigo-600"
+                  : "text-gray-400"
+              }`}
+              title="Slide View"
+            >
+              <GalleryHorizontal className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("landscape")}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === "landscape"
+                  ? isDarkMode
+                    ? "bg-slate-600 text-white"
+                    : "bg-white shadow-sm text-indigo-600"
+                  : "text-gray-400"
+              }`}
+              title="Landscape View"
+            >
+              <Columns className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === "grid"
+                  ? isDarkMode
+                    ? "bg-slate-600 text-white"
+                    : "bg-white shadow-sm text-indigo-600"
+                  : "text-gray-400"
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Action Buttons Group */}
-          <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <div className="h-6 w-px bg-gray-300 mx-1 opacity-50"></div>
+
+          {/* Backup Menu */}
+          <div className="relative">
             <button
-              onClick={handleStartNewWeek}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
-              title="Uncheck weekly tasks"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenu(openMenu === "data" ? null : "data");
+              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isDarkMode
+                  ? "bg-slate-700 hover:bg-slate-600"
+                  : "bg-white hover:bg-gray-100 shadow-sm"
+              }`}
             >
-              <RotateCcw className="w-4 h-4" />
-              <span>New Week</span>
+              <FileJson className="w-4 h-4" />
+              <span className="hidden sm:inline">Data</span>
+              <ChevronDown className="w-3 h-3 opacity-50" />
             </button>
 
-            <button
-              onClick={handleStartNewMonth}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
-              title="Uncheck monthly tasks"
-            >
-              <CalendarDays className="w-4 h-4" />
-              <span>New Month</span>
-            </button>
-
-            <div className="flex bg-gray-200 p-1 rounded-lg">
-              <button
-                onClick={() => setViewMode("landscape")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  viewMode === "landscape"
-                    ? "bg-white text-indigo-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+            {openMenu === "data" && (
+              <div
+                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
+                  isDarkMode
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-gray-100"
                 }`}
               >
-                <Columns className="w-4 h-4" />
-                <span className="hidden sm:inline">Landscape</span>
-              </button>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  viewMode === "grid"
-                    ? "bg-white text-indigo-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                <button
+                  onClick={handleExport}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <Download className="w-4 h-4" /> Download Backup
+                </button>
+                <label
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 cursor-pointer hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <Upload className="w-4 h-4" /> Import Backup
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".json"
+                    onChange={handleImport}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Reset Menu */}
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenu(openMenu === "reset" ? null : "reset");
+              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
+                isDarkMode
+                  ? "bg-indigo-900/50 text-indigo-300 hover:bg-indigo-900"
+                  : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+              }`}
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+              <ChevronDown className="w-3 h-3 opacity-50" />
+            </button>
+
+            {openMenu === "reset" && (
+              <div
+                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
+                  isDarkMode
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-gray-100"
                 }`}
               >
-                <LayoutGrid className="w-4 h-4" />
-                <span className="hidden sm:inline">Grid</span>
-              </button>
-            </div>
-
-            <button
-              onClick={handleClearAll}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-              title="Delete everything"
-            >
-              <Eraser className="w-4 h-4" />
-            </button>
+                <button
+                  onClick={handleStartNewWeek}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <RotateCcw className="w-4 h-4 text-indigo-500" /> Start New
+                  Week
+                </button>
+                <button
+                  onClick={handleStartNewMonth}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <CalendarDays className="w-4 h-4 text-blue-500" /> Start New
+                  Month
+                </button>
+                <div
+                  className={`h-px ${
+                    isDarkMode ? "bg-slate-700" : "bg-gray-100"
+                  }`}
+                ></div>
+                <button
+                  onClick={handleClearAll}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-red-900/20 text-red-400"
+                      : "hover:bg-red-50 text-red-600"
+                  }`}
+                >
+                  <Eraser className="w-4 h-4" /> Clear All Data
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* --- Main Grid --- */}
       <div className={`max-w-[1600px] mx-auto ${containerClasses}`}>
         {daysOrder.map((day) => {
           const dayData = schedule[day];
@@ -691,6 +775,8 @@ export default function WeeklyScheduler() {
           const items = activePlan.items;
           const isToday =
             day === new Date().toLocaleDateString("en-US", { weekday: "long" });
+          const progress = getProgress(items);
+          const isComplete = items.length > 0 && progress === 100;
 
           return (
             <div
@@ -698,46 +784,71 @@ export default function WeeklyScheduler() {
               ref={(el) => (dayRefs.current[day] = el)}
               className={`${cardClasses(day)} ${
                 isDragging ? "opacity-90" : ""
-              } ${isToday ? "ring-2 ring-offset-2 ring-indigo-500" : ""}`}
+              } ${isToday ? "ring-2 ring-indigo-500" : ""}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDropOnEmpty(e, day)}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
+              {/* Progress Bar */}
+              {items.length > 0 && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 dark:bg-slate-700">
+                  <div
+                    className={`h-full transition-all duration-500 ${
+                      isComplete ? "bg-yellow-400" : "bg-indigo-500"
+                    }`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+
+              {/* Card Header */}
               <div
-                className={`${headerClasses} border-b border-black/5 flex flex-col`}
+                className={`p-4 border-b ${
+                  isDarkMode ? "border-slate-700" : "border-gray-100"
+                } flex flex-col gap-3`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="font-bold uppercase tracking-wider opacity-90 truncate flex items-center gap-2">
-                    {day}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-bold uppercase tracking-wider text-lg">
+                      {day}
+                    </h2>
                     {isToday && (
-                      <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full tracking-normal normal-case">
+                      <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full">
                         Today
                       </span>
                     )}
-                  </h2>
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-white/50 border border-black/5">
+                    {isComplete && (
+                      <PartyPopper className="w-5 h-5 text-yellow-500 animate-bounce" />
+                    )}
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-2 py-1 rounded-full ${
+                      isDarkMode ? "bg-slate-700" : "bg-gray-100"
+                    }`}
+                  >
                     {items.length}
                   </span>
                 </div>
 
-                {/* Compact Plan Tabs */}
+                {/* Plan Tabs */}
                 <div className="flex flex-wrap gap-1">
                   {dayData.plans.map((plan, idx) => {
                     const isActive = idx === dayData.activePlanIndex;
-                    const isEditingThisPlan =
+                    const isEditing =
                       editingPlan?.day === day &&
                       editingPlan?.planIndex === idx;
-
                     return (
                       <div
                         key={plan.id}
-                        className={`
-                          group relative flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-all border
+                        className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer border flex items-center gap-1
                           ${
                             isActive
-                              ? "bg-white shadow-sm border-black/10 text-gray-800 z-10"
-                              : "bg-black/5 border-transparent text-gray-500 hover:bg-white/40"
+                              ? isDarkMode
+                                ? "bg-slate-700 border-slate-600 text-white"
+                                : "bg-white border-gray-200 text-gray-800 shadow-sm"
+                              : isDarkMode
+                              ? "bg-transparent border-transparent text-slate-500 hover:bg-slate-800"
+                              : "bg-transparent border-transparent text-gray-400 hover:bg-gray-50"
                           }
                         `}
                         onClick={() => setActivePlan(day, idx)}
@@ -745,10 +856,9 @@ export default function WeeklyScheduler() {
                           startEditingPlan(day, idx, plan.name)
                         }
                       >
-                        {isEditingThisPlan ? (
+                        {isEditing ? (
                           <input
                             autoFocus
-                            type="text"
                             className="w-12 bg-transparent outline-none border-b border-indigo-500"
                             value={editPlanValue}
                             onChange={(e) => setEditPlanValue(e.target.value)}
@@ -758,28 +868,25 @@ export default function WeeklyScheduler() {
                             }
                           />
                         ) : (
-                          <span className="max-w-[60px] truncate">
-                            {plan.name}
-                          </span>
+                          plan.name
                         )}
 
                         {dayData.plans.length > 1 && (
-                          <button
+                          <X
                             onClick={(e) => handleRemovePlan(day, idx, e)}
-                            className={`ml-1 hover:text-red-500 ${
-                              isActive ? "block" : "hidden group-hover:block"
-                            }`}
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </button>
+                            className="w-3 h-3 hover:text-red-500 opacity-50 hover:opacity-100"
+                          />
                         )}
                       </div>
                     );
                   })}
                   <button
                     onClick={() => handleAddPlan(day)}
-                    className="flex items-center justify-center w-4 h-4 rounded hover:bg-white/60 text-gray-500 transition-colors"
-                    title="Add Plan"
+                    className={`p-1 rounded hover:bg-opacity-80 ${
+                      isDarkMode
+                        ? "text-slate-400 hover:bg-slate-700"
+                        : "text-gray-400 hover:bg-gray-100"
+                    }`}
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -789,19 +896,18 @@ export default function WeeklyScheduler() {
               {/* Task List */}
               <div
                 className={`flex-grow overflow-y-auto ${
-                  viewMode === "landscape"
-                    ? "p-2 max-h-[60vh]"
+                  viewMode === "landscape" || viewMode === "slide"
+                    ? "p-3 max-h-[60vh]"
                     : "p-4 min-h-[150px]"
                 }`}
               >
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {items.map((item, index) => {
-                    const isEditingThis = editingItem?.itemId === item.id;
-
+                    const colorStyle = colors[item.color || "default"];
                     return (
                       <li
                         key={item.id}
-                        draggable={!isEditingThis}
+                        draggable
                         onDragStart={(e) =>
                           handleDragStart(
                             e,
@@ -820,26 +926,25 @@ export default function WeeklyScheduler() {
                           )
                         }
                         onDragEnd={handleDragEnd}
+                        onClick={() => openEditModal(day, item)}
                         className={`
-                          group flex items-start gap-1.5 bg-white/80 rounded-md transition-all duration-200 shadow-sm
-                          ${viewMode === "landscape" ? "p-1.5" : "p-3"}
+                          group flex items-start gap-2 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 active:scale-95
                           ${
-                            dragItem.current?.item.id === item.id
-                              ? "opacity-50 bg-indigo-100 scale-95"
-                              : "hover:bg-white hover:scale-[1.02]"
+                            isDarkMode
+                              ? "bg-slate-700 border-slate-600 hover:bg-slate-650"
+                              : "bg-white border-gray-100 hover:border-indigo-100 hover:shadow-md"
                           }
-                          ${isEditingThis ? "ring-2 ring-indigo-200" : ""}
+                          ${item.completed ? "opacity-60" : "opacity-100"}
                         `}
                       >
-                        <GripVertical
-                          className={`text-gray-400 flex-shrink-0 cursor-grab active:cursor-grabbing ${
-                            viewMode === "landscape"
-                              ? "w-3 h-3 mt-0.5"
-                              : "w-4 h-4 mt-1"
-                          }`}
-                        />
+                        <div className="flex flex-col gap-1 mt-1">
+                          <GripVertical
+                            className={`w-4 h-4 ${
+                              isDarkMode ? "text-slate-500" : "text-gray-300"
+                            }`}
+                          />
+                        </div>
 
-                        {/* Checkbox */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -850,115 +955,247 @@ export default function WeeklyScheduler() {
                             );
                           }}
                           className={`
-                            flex-shrink-0 flex items-center justify-center rounded transition-colors duration-200 border
-                            ${viewMode === "landscape" ? "w-4 h-4" : "w-5 h-5"}
+                            mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all
                             ${
                               item.completed
                                 ? "bg-green-500 border-green-500 text-white"
-                                : "bg-white border-gray-300 hover:border-indigo-400 text-transparent"
+                                : isDarkMode
+                                ? "border-slate-500 hover:border-slate-400"
+                                : "border-gray-300 hover:border-indigo-400"
                             }
                           `}
                         >
                           <Check
-                            className={`w-3 h-3 ${
+                            className={`w-3.5 h-3.5 ${
                               item.completed ? "opacity-100" : "opacity-0"
                             }`}
                           />
                         </button>
 
                         <div className="flex-grow min-w-0">
-                          {isEditingThis ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                ref={(input) => input && input.focus()}
-                                type="text"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onKeyDown={(e) =>
-                                  e.key === "Enter" && saveEdit()
-                                }
-                                className={`w-full bg-transparent border-b border-indigo-300 focus:border-indigo-500 outline-none px-1 ${textClasses}`}
-                              />
-                              <button
-                                onClick={saveEdit}
-                                className="text-green-600 hover:bg-green-50 rounded p-0.5"
-                              >
-                                <Check className="w-3 h-3" />
-                              </button>
+                          <div
+                            className={`text-sm font-medium leading-snug break-words ${
+                              item.completed ? "line-through opacity-70" : ""
+                            }`}
+                          >
+                            {item.text}
+                          </div>
+
+                          {(item.time ||
+                            (item.color && item.color !== "default")) && (
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {item.time && (
+                                <span
+                                  className={`text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                                    isDarkMode
+                                      ? "bg-slate-600 text-slate-300"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
+                                >
+                                  <Clock className="w-3 h-3" /> {item.time}
+                                </span>
+                              )}
+                              {item.color && item.color !== "default" && (
+                                <div
+                                  className={`w-2 h-2 rounded-full ${colorStyle.dot}`}
+                                  title={item.color}
+                                />
+                              )}
                             </div>
-                          ) : (
-                            <span
-                              className={`${textClasses} font-medium leading-snug break-words block cursor-text transition-all duration-200 ${
-                                item.completed
-                                  ? "line-through text-gray-400"
-                                  : "text-gray-800"
-                              }`}
-                              onDoubleClick={() =>
-                                startEditing(day, dayData.activePlanIndex, item)
-                              }
-                            >
-                              {item.text}
-                            </span>
                           )}
                         </div>
-
-                        {!isEditingThis && (
-                          <div className="flex opacity-0 group-hover:opacity-100 transition-opacity duration-200 gap-1">
-                            <button
-                              onClick={() =>
-                                startEditing(day, dayData.activePlanIndex, item)
-                              }
-                              className="text-gray-400 hover:text-indigo-600"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleRemoveItem(day, item.id)}
-                              className="text-gray-400 hover:text-red-600"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
                       </li>
                     );
                   })}
                 </ul>
+
+                {items.length === 0 && (
+                  <div
+                    className={`text-center py-8 italic text-xs ${
+                      isDarkMode ? "text-slate-600" : "text-gray-300"
+                    }`}
+                  >
+                    No tasks yet
+                  </div>
+                )}
               </div>
 
-              {/* Footer Input */}
+              {/* Add Button Footer */}
               <div
-                className={`border-t border-black/5 bg-white/30 rounded-b-xl ${
-                  viewMode === "landscape" ? "p-2" : "p-3 mt-auto"
+                className={`p-3 mt-auto border-t ${
+                  isDarkMode
+                    ? "border-slate-700"
+                    : "border-gray-50 bg-gray-50/50"
                 }`}
               >
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={newItems[day] || ""}
-                    onChange={(e) =>
-                      setNewItems((prev) => ({
-                        ...prev,
-                        [day]: e.target.value,
-                      }))
+                <button
+                  onClick={() => openAddModal(day)}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 font-medium rounded-xl transition-all duration-200 text-sm active:scale-95
+                    ${
+                      isDarkMode
+                        ? "bg-slate-700 hover:bg-slate-600 text-indigo-300"
+                        : "bg-white hover:bg-white text-indigo-600 shadow-sm border border-gray-200 hover:shadow-md"
                     }
-                    onKeyDown={(e) => e.key === "Enter" && handleAddItem(day)}
-                    placeholder="Add..."
-                    className={`flex-grow px-2 py-1 rounded border border-transparent focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 bg-white shadow-sm outline-none transition-all placeholder-gray-400 ${textClasses}`}
-                  />
-                  <button
-                    onClick={() => handleAddItem(day)}
-                    disabled={!newItems[day]?.trim()}
-                    className="px-1.5 bg-white hover:bg-indigo-50 text-indigo-600 rounded shadow-sm transition-colors disabled:opacity-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
+                  `}
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Add Task</span>
+                </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* --- Unified Modal (Add/Edit) --- */}
+      {activeModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
+              isDarkMode ? "bg-slate-800" : "bg-white"
+            }`}
+          >
+            <div
+              className={`p-4 border-b flex items-center justify-between ${
+                isDarkMode
+                  ? "border-slate-700 bg-slate-800"
+                  : "border-gray-100 bg-gray-50/80"
+              }`}
+            >
+              <h3 className="font-bold text-lg">
+                {activeModal.mode === "add"
+                  ? `Add to ${activeModal.day}`
+                  : "Edit Task"}
+              </h3>
+              <button
+                onClick={closeModal}
+                className={`p-1 rounded-full ${
+                  isDarkMode
+                    ? "hover:bg-slate-700 text-slate-400"
+                    : "hover:bg-gray-200 text-gray-400"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-4">
+              <textarea
+                ref={modalInputRef}
+                value={modalInput}
+                onChange={(e) => setModalInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleModalSave();
+                  }
+                }}
+                placeholder="What needs to be done?"
+                rows={3}
+                className={`w-full text-lg px-4 py-3 rounded-xl border focus:ring-4 outline-none transition-all resize-none
+                  ${
+                    isDarkMode
+                      ? "bg-slate-900 border-slate-700 focus:border-indigo-500 focus:ring-indigo-900/50 text-white placeholder-slate-600"
+                      : "bg-white border-gray-200 focus:border-indigo-500 focus:ring-indigo-50 placeholder-gray-300 text-gray-800"
+                  }
+                `}
+              />
+
+              <div className="flex gap-3">
+                <div
+                  className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                    isDarkMode
+                      ? "bg-slate-900 border-slate-700"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <input
+                    type="time"
+                    value={modalTime}
+                    onChange={(e) => setModalTime(e.target.value)}
+                    className="bg-transparent outline-none w-full text-sm text-gray-500"
+                  />
+                </div>
+
+                <div
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                    isDarkMode
+                      ? "bg-slate-900 border-slate-700"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <Tag className="w-4 h-4 text-gray-400" />
+                  <select
+                    value={modalColor}
+                    onChange={(e) => setModalColor(e.target.value)}
+                    className="bg-transparent outline-none text-sm text-gray-500 appearance-none cursor-pointer"
+                  >
+                    <option value="default">Default</option>
+                    <option value="red">Urgent 🔴</option>
+                    <option value="blue">Work 🔵</option>
+                    <option value="green">Personal 🟢</option>
+                    <option value="orange">Home 🟠</option>
+                    <option value="purple">Fun 🟣</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-2">
+                {activeModal.mode === "edit" ? (
+                  <>
+                    <button
+                      onClick={handleModalSave}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Save className="w-4 h-4" /> Save Changes
+                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={moveTaskToNextDay}
+                        className={`flex-1 py-3 font-medium rounded-xl transition-colors flex items-center justify-center gap-2 border ${
+                          isDarkMode
+                            ? "border-slate-600 hover:bg-slate-700"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <ArrowRight className="w-4 h-4" /> Tomorrow
+                      </button>
+                      <button
+                        onClick={handleModalDelete}
+                        className="flex-1 py-3 font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-red-500 border border-red-200 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={closeModal}
+                      className={`flex-1 py-3 font-medium rounded-xl transition-colors ${
+                        isDarkMode
+                          ? "text-slate-400 hover:bg-slate-700"
+                          : "text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleModalSave}
+                      disabled={!modalInput.trim()}
+                      className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      Add Task
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
