@@ -31,7 +31,7 @@ import {
 
 export default function WeeklyScheduler() {
   // --- State Management ---
-  const [viewMode, setViewMode] = useState("landscape"); // 'grid' | 'landscape' | 'slide'
+  const [viewMode, setViewMode] = useState("slide"); // 'grid' | 'landscape' | 'slide'
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Initial Data Configuration
@@ -133,29 +133,45 @@ export default function WeeklyScheduler() {
     "Monthly",
   ];
 
-  const colors = {
-    default: {
-      bg: "bg-gray-100",
-      border: "border-gray-200",
-      dot: "bg-gray-400",
-    },
-    red: { bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500" },
-    blue: { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500" },
-    green: {
-      bg: "bg-green-50",
-      border: "border-green-200",
-      dot: "bg-green-500",
-    },
-    orange: {
-      bg: "bg-orange-50",
-      border: "border-orange-200",
-      dot: "bg-orange-500",
-    },
-    purple: {
-      bg: "bg-purple-50",
-      border: "border-purple-200",
-      dot: "bg-purple-500",
-    },
+  // Color styles for whole cards
+  const getTaskStyles = (colorKey, isDark) => {
+    const styles = {
+      default: {
+        light: "bg-white border-gray-200 hover:border-indigo-200",
+        dark: "bg-slate-700 border-slate-600 hover:border-slate-500",
+      },
+      red: {
+        // Urgent
+        light: "bg-red-50 border-red-200 hover:border-red-300 text-red-900",
+        dark: "bg-red-900/20 border-red-800/50 hover:border-red-700/50 text-red-100",
+      },
+      blue: {
+        // Work
+        light: "bg-blue-50 border-blue-200 hover:border-blue-300 text-blue-900",
+        dark: "bg-blue-900/20 border-blue-800/50 hover:border-blue-700/50 text-blue-100",
+      },
+      green: {
+        // Home
+        light:
+          "bg-green-50 border-green-200 hover:border-green-300 text-green-900",
+        dark: "bg-green-900/20 border-green-800/50 hover:border-green-700/50 text-green-100",
+      },
+      yellow: {
+        // Fun
+        light:
+          "bg-yellow-50 border-yellow-200 hover:border-yellow-300 text-yellow-900",
+        dark: "bg-yellow-900/20 border-yellow-800/50 hover:border-yellow-700/50 text-yellow-100",
+      },
+      orange: {
+        // Personal
+        light:
+          "bg-orange-50 border-orange-200 hover:border-orange-300 text-orange-900",
+        dark: "bg-orange-900/20 border-orange-800/50 hover:border-orange-700/50 text-orange-100",
+      },
+    };
+    return isDark
+      ? styles[colorKey || "default"].dark
+      : styles[colorKey || "default"].light;
   };
 
   // --- Helper Functions ---
@@ -167,8 +183,8 @@ export default function WeeklyScheduler() {
       if (dayRefs.current[today]) {
         dayRefs.current[today].scrollIntoView({
           behavior: "smooth",
-          block: "start",
-          inline: "start",
+          block: "nearest",
+          inline: "center",
         });
       }
     }, 300);
@@ -348,21 +364,46 @@ export default function WeeklyScheduler() {
       const activePlan = dayData.plans[dayData.activePlanIndex];
       const updatedPlans = [...dayData.plans];
 
-      const itemData = {
-        text: modalInput,
+      let newItems = [...activePlan.items];
+
+      // Common data for both paths
+      const commonData = {
         time: modalTime,
         color: modalColor,
       };
 
-      let newItems;
       if (mode === "add") {
-        newItems = [
-          ...activePlan.items,
-          { id: Date.now(), ...itemData, completed: false },
-        ];
+        // --- SMART PASTE LOGIC START ---
+        if (modalInput.includes("\n")) {
+          const lines = modalInput.split("\n");
+          lines.forEach((line, index) => {
+            if (line.trim()) {
+              newItems.push({
+                id: Date.now() + index,
+                text: line.trim(),
+                ...commonData,
+                completed: false,
+              });
+            }
+          });
+        } else {
+          newItems.push({
+            id: Date.now(),
+            text: modalInput.trim(),
+            ...commonData,
+            completed: false,
+          });
+        }
+        // --- SMART PASTE LOGIC END ---
       } else {
         newItems = activePlan.items.map((i) =>
-          i.id === item.id ? { ...i, ...itemData } : i
+          i.id === item.id
+            ? {
+                ...i,
+                text: modalInput,
+                ...commonData,
+              }
+            : i
         );
       }
 
@@ -903,7 +944,7 @@ export default function WeeklyScheduler() {
               >
                 <ul className="space-y-2">
                   {items.map((item, index) => {
-                    const colorStyle = colors[item.color || "default"];
+                    const taskStyles = getTaskStyles(item.color, isDarkMode);
                     return (
                       <li
                         key={item.id}
@@ -929,18 +970,14 @@ export default function WeeklyScheduler() {
                         onClick={() => openEditModal(day, item)}
                         className={`
                           group flex items-start gap-2 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 active:scale-95
-                          ${
-                            isDarkMode
-                              ? "bg-slate-700 border-slate-600 hover:bg-slate-650"
-                              : "bg-white border-gray-100 hover:border-indigo-100 hover:shadow-md"
-                          }
+                          ${taskStyles}
                           ${item.completed ? "opacity-60" : "opacity-100"}
                         `}
                       >
                         <div className="flex flex-col gap-1 mt-1">
                           <GripVertical
                             className={`w-4 h-4 ${
-                              isDarkMode ? "text-slate-500" : "text-gray-300"
+                              isDarkMode ? "text-slate-500" : "text-gray-400"
                             }`}
                           />
                         </div>
@@ -981,26 +1018,17 @@ export default function WeeklyScheduler() {
                             {item.text}
                           </div>
 
-                          {(item.time ||
-                            (item.color && item.color !== "default")) && (
+                          {item.time && (
                             <div className="flex items-center gap-2 mt-1.5">
-                              {item.time && (
-                                <span
-                                  className={`text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded ${
-                                    isDarkMode
-                                      ? "bg-slate-600 text-slate-300"
-                                      : "bg-gray-100 text-gray-500"
-                                  }`}
-                                >
-                                  <Clock className="w-3 h-3" /> {item.time}
-                                </span>
-                              )}
-                              {item.color && item.color !== "default" && (
-                                <div
-                                  className={`w-2 h-2 rounded-full ${colorStyle.dot}`}
-                                  title={item.color}
-                                />
-                              )}
+                              <span
+                                className={`text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                                  isDarkMode
+                                    ? "bg-slate-600/50 text-slate-300"
+                                    : "bg-white/50 text-gray-500"
+                                }`}
+                              >
+                                <Clock className="w-3 h-3" /> {item.time}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -1055,6 +1083,7 @@ export default function WeeklyScheduler() {
               isDarkMode ? "bg-slate-800" : "bg-white"
             }`}
           >
+            {/* Modal Header */}
             <div
               className={`p-4 border-b flex items-center justify-between ${
                 isDarkMode
@@ -1080,28 +1109,43 @@ export default function WeeklyScheduler() {
             </div>
 
             <div className="p-5 flex flex-col gap-4">
-              <textarea
-                ref={modalInputRef}
-                value={modalInput}
-                onChange={(e) => setModalInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleModalSave();
-                  }
-                }}
-                placeholder="What needs to be done?"
-                rows={3}
-                className={`w-full text-lg px-4 py-3 rounded-xl border focus:ring-4 outline-none transition-all resize-none
-                  ${
-                    isDarkMode
-                      ? "bg-slate-900 border-slate-700 focus:border-indigo-500 focus:ring-indigo-900/50 text-white placeholder-slate-600"
-                      : "bg-white border-gray-200 focus:border-indigo-500 focus:ring-indigo-50 placeholder-gray-300 text-gray-800"
-                  }
-                `}
-              />
+              {/* Text Input */}
+              <div>
+                <textarea
+                  ref={modalInputRef}
+                  value={modalInput}
+                  onChange={(e) => setModalInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleModalSave();
+                    }
+                  }}
+                  placeholder="What needs to be done?"
+                  rows={3}
+                  className={`w-full text-lg px-4 py-3 rounded-xl border focus:ring-4 outline-none transition-all resize-none
+                    ${
+                      isDarkMode
+                        ? "bg-slate-900 border-slate-700 focus:border-indigo-500 focus:ring-indigo-900/50 text-white placeholder-slate-600"
+                        : "bg-white border-gray-200 focus:border-indigo-500 focus:ring-indigo-50 placeholder-gray-300 text-gray-800"
+                    }
+                  `}
+                />
+                {activeModal.mode === "add" && (
+                  <p
+                    className={`text-xs mt-1 ml-1 ${
+                      isDarkMode ? "text-slate-500" : "text-gray-400"
+                    }`}
+                  >
+                    💡 Tip: Paste a list or type multiple lines to add distinct
+                    tasks.
+                  </p>
+                )}
+              </div>
 
+              {/* Extra Options Row */}
               <div className="flex gap-3">
+                {/* Time Picker */}
                 <div
                   className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border ${
                     isDarkMode
@@ -1118,6 +1162,7 @@ export default function WeeklyScheduler() {
                   />
                 </div>
 
+                {/* Color Picker */}
                 <div
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
                     isDarkMode
@@ -1134,13 +1179,14 @@ export default function WeeklyScheduler() {
                     <option value="default">Default</option>
                     <option value="red">Urgent 🔴</option>
                     <option value="blue">Work 🔵</option>
-                    <option value="green">Personal 🟢</option>
-                    <option value="orange">Home 🟠</option>
-                    <option value="purple">Fun 🟣</option>
+                    <option value="green">Home 🟢</option>
+                    <option value="yellow">Fun 🟡</option>
+                    <option value="orange">Personal 🟠</option>
                   </select>
                 </div>
               </div>
 
+              {/* Action Buttons */}
               <div className="flex flex-col gap-2 mt-2">
                 {activeModal.mode === "edit" ? (
                   <>
