@@ -32,13 +32,37 @@ import {
   History,
   ScrollText,
   ChevronRight,
-  ChevronDown as ChevronDownIcon,
+  Settings,
+  Palette,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export default function WeeklyScheduler() {
   // --- State Management ---
   const [viewMode, setViewMode] = useState("slide");
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [wallpaper, setWallpaper] = useState("default");
+
+  // MULTI-TAB Settings (Array of objects)
+  const [tabSettings, setTabSettings] = useState(() => {
+    const saved = localStorage.getItem("tabSettings");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migration: Handle old single-object format if it exists
+      if (!Array.isArray(parsed) && parsed.name) {
+        return [{ id: Date.now(), name: parsed.name, days: parsed.days || [] }];
+      }
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    // Default example if nothing saved
+    return [
+      {
+        id: 1,
+        name: "Work",
+        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      },
+    ];
+  });
 
   // Initial Data Configuration
   const initialSchedule = {
@@ -93,6 +117,8 @@ export default function WeeklyScheduler() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") setIsDarkMode(true);
+    const savedWallpaper = localStorage.getItem("wallpaper");
+    if (savedWallpaper) setWallpaper(savedWallpaper);
   }, []);
 
   // Persist Data
@@ -105,6 +131,12 @@ export default function WeeklyScheduler() {
   useEffect(() => {
     localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
+  useEffect(() => {
+    localStorage.setItem("wallpaper", wallpaper);
+  }, [wallpaper]);
+  useEffect(() => {
+    localStorage.setItem("tabSettings", JSON.stringify(tabSettings));
+  }, [tabSettings]);
 
   // --- Statistics Logic ---
   const XP_PER_TASK = 50;
@@ -113,7 +145,6 @@ export default function WeeklyScheduler() {
     let totalTasks = 0;
     let completedTasks = 0;
 
-    // Only count Mon-Sun
     [
       "Monday",
       "Tuesday",
@@ -133,42 +164,26 @@ export default function WeeklyScheduler() {
     });
 
     const currentXP = completedTasks * XP_PER_TASK;
-    // Level formula: Level 1 = 0-300xp
     const level = Math.floor(currentXP / 300) + 1;
     const nextLevelXP = level * 300;
     const prevLevelXP = (level - 1) * 300;
     const progressToNext =
       ((currentXP - prevLevelXP) / (nextLevelXP - prevLevelXP)) * 100;
-    const totalProgress =
-      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-    return {
-      level,
-      currentXP,
-      nextLevelXP,
-      progressToNext,
-      completedTasks,
-      totalTasks,
-      totalProgress,
-    };
+    return { level, currentXP, nextLevelXP, progressToNext };
   };
 
   const calculateMonthlyStats = () => {
     const monthlyData = schedule["Monthly"];
     let total = 0;
     let completed = 0;
-
     if (monthlyData) {
       monthlyData.plans.forEach((plan) => {
         total += plan.items.length;
         completed += plan.items.filter((i) => i.completed).length;
       });
     }
-    return {
-      total,
-      completed,
-      percent: total === 0 ? 0 : Math.round((completed / total) * 100),
-    };
+    return { percent: total === 0 ? 0 : Math.round((completed / total) * 100) };
   };
 
   const weeklyStats = calculateWeeklyStats();
@@ -182,6 +197,8 @@ export default function WeeklyScheduler() {
     item: null,
   });
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showWallpapers, setShowWallpapers] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
   const [modalInput, setModalInput] = useState("");
   const [modalTime, setModalTime] = useState("");
@@ -193,8 +210,6 @@ export default function WeeklyScheduler() {
   const dragNode = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const dayRefs = useRef({});
-
-  // Expanded History Item State
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
   const daysOrder = [
@@ -207,6 +222,27 @@ export default function WeeklyScheduler() {
     "Sunday",
     "Monthly",
   ];
+
+  // --- Themes & Wallpapers ---
+  const wallpapers = {
+    default: isDarkMode ? "bg-slate-900" : "bg-stone-50",
+    nature: "bg-gradient-to-br from-emerald-800 to-green-600",
+    ocean: "bg-gradient-to-br from-blue-900 to-cyan-600",
+    sunset: "bg-gradient-to-br from-indigo-900 via-purple-800 to-orange-500",
+    fall: "bg-gradient-to-br from-red-900 via-orange-800 to-yellow-600",
+  };
+
+  const isWallpaperActive = wallpaper !== "default";
+  const baseTextColor = isWallpaperActive
+    ? "text-white"
+    : isDarkMode
+    ? "text-slate-100"
+    : "text-gray-900";
+  const mutedTextColor = isWallpaperActive
+    ? "text-white/70"
+    : isDarkMode
+    ? "text-slate-400"
+    : "text-gray-500";
 
   const getTaskStyles = (colorKey, isDark) => {
     const styles = {
@@ -264,60 +300,67 @@ export default function WeeklyScheduler() {
   const saveToHistory = (type, name, data, score) => {
     const newEntry = {
       id: Date.now(),
-      type: type, // 'week' or 'month'
-      name: name,
+      type,
+      name,
       date: new Date().toLocaleDateString(),
-      score: score,
-      data: data, // Full copy of the relevant tasks
+      score,
+      data,
     };
     setHistory((prev) => [newEntry, ...prev]);
   };
 
-  // --- Reset Logic ---
+  // --- Reset Logic with MULTI-TABS ---
   const handleStartNewWeek = () => {
     if (
       !window.confirm(
-        "Start new WEEK? This will SAVE your progress to History and reset daily tasks."
+        "Start new WEEK? This saves history, resets items, and applies your Tab Settings."
       )
     )
       return;
 
-    // 1. Gather weekly data for archive
+    // Archive
     const weeklySnapshot = {};
-    [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ].forEach((d) => {
-      weeklySnapshot[d] = schedule[d];
+    daysOrder.forEach((d) => {
+      if (d !== "Monthly") weeklySnapshot[d] = schedule[d];
     });
-
-    // 2. Save to History
     saveToHistory(
       "week",
       `Week of ${new Date().toLocaleDateString()}`,
       weeklySnapshot,
-      weeklyStats.totalProgress
+      weeklyStats.totalProgress || 0
     );
 
-    // 3. Reset
+    // Reset & Rebuild
     setSchedule((prev) => {
-      const newSchedule = { ...prev };
-      Object.keys(newSchedule).forEach((dayKey) => {
-        if (dayKey === "Monthly") return; // Skip Monthly
-        const day = newSchedule[dayKey];
+      const newSchedule = {};
+
+      daysOrder.forEach((dayKey) => {
+        if (dayKey === "Monthly") {
+          newSchedule[dayKey] = prev[dayKey];
+          return;
+        }
+
+        // 1. Always create Main plan
+        const plans = [{ id: `p_${dayKey}_main`, name: "Main", items: [] }];
+
+        // 2. Loop through User Settings and add custom tabs
+        tabSettings.forEach((setting, index) => {
+          if (setting.days.includes(dayKey)) {
+            plans.push({
+              id: `p_${dayKey}_custom_${setting.id}`,
+              name: setting.name,
+              items: [],
+            });
+          }
+        });
+
         newSchedule[dayKey] = {
-          ...day,
-          plans: day.plans.map((plan) => ({
-            ...plan,
-            items: plan.items.map((item) => ({ ...item, completed: false })),
-          })),
+          activePlanIndex: 0,
+          plans: plans,
         };
       });
+
+      newSchedule["Monthly"] = prev["Monthly"];
       return newSchedule;
     });
     setOpenMenu(null);
@@ -325,56 +368,37 @@ export default function WeeklyScheduler() {
 
   const handleStartNewMonth = () => {
     const monthName = prompt(
-      "Name this month for the archive (e.g. 'January Goals'):",
+      "Name this month:",
       new Date().toLocaleString("default", { month: "long" })
     );
     if (!monthName) return;
-
-    // 1. Save to History
     saveToHistory(
       "month",
       monthName,
       { Monthly: schedule.Monthly },
       monthlyStats.percent
     );
-
-    // 2. Reset
-    setSchedule((prev) => {
-      const newSchedule = { ...prev };
-      const monthlyData = newSchedule["Monthly"];
-      newSchedule["Monthly"] = {
-        ...monthlyData,
-        plans: monthlyData.plans.map((plan) => ({
-          ...plan,
-          items: plan.items.map((item) => ({ ...item, completed: false })),
-        })),
-      };
-      return newSchedule;
-    });
+    setSchedule((prev) => ({
+      ...prev,
+      Monthly: {
+        activePlanIndex: 0,
+        plans: [{ id: "m1", name: "Main", items: [] }],
+      },
+    }));
     setOpenMenu(null);
   };
 
   const handleClearAll = () => {
-    if (!window.confirm("⚠️ Delete ALL tasks? Cannot be undone.")) return;
-    setSchedule((prev) => {
-      const newSchedule = {};
-      Object.keys(prev).forEach((dayKey) => {
-        const day = prev[dayKey];
-        newSchedule[dayKey] = {
-          ...day,
-          plans: day.plans.map((plan) => ({ ...plan, items: [] })),
-        };
-      });
-      return newSchedule;
-    });
+    if (!window.confirm("Delete ALL tasks?")) return;
+    setSchedule(initialSchedule);
     setOpenMenu(null);
   };
 
-  // --- Core Actions ---
+  // --- Export/Import ---
   const handleExport = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify({ schedule, history }));
+      encodeURIComponent(JSON.stringify({ schedule, history, tabSettings }));
     const a = document.createElement("a");
     a.href = dataStr;
     a.download = "scheduler_backup.json";
@@ -382,29 +406,55 @@ export default function WeeklyScheduler() {
     a.remove();
     setOpenMenu(null);
   };
-
   const handleImport = (e) => {
     const fileReader = new FileReader();
     fileReader.readAsText(e.target.files[0], "UTF-8");
     fileReader.onload = (evt) => {
       try {
         const data = JSON.parse(evt.target.result);
-        if (data.schedule) {
-          if (window.confirm("Overwrite current schedule?")) {
-            setSchedule(data.schedule);
-            if (data.history) setHistory(data.history);
-          }
-        } else if (data.Monday) {
-          // Legacy support
-          if (window.confirm("Overwrite current schedule?")) setSchedule(data);
+        if (data.schedule && window.confirm("Overwrite current data?")) {
+          setSchedule(data.schedule);
+          if (data.history) setHistory(data.history);
+          if (data.tabSettings) setTabSettings(data.tabSettings);
         }
       } catch (err) {
-        alert("Error reading file");
+        alert("Error");
       }
     };
     setOpenMenu(null);
   };
 
+  // --- Tab Settings Handlers ---
+  const addTabSetting = () => {
+    setTabSettings([
+      ...tabSettings,
+      { id: Date.now(), name: "New Tab", days: [] },
+    ]);
+  };
+
+  const updateTabSetting = (id, field, value) => {
+    setTabSettings(
+      tabSettings.map((t) => (t.id === id ? { ...t, [field]: value } : t))
+    );
+  };
+
+  const toggleTabDay = (id, day) => {
+    setTabSettings(
+      tabSettings.map((t) => {
+        if (t.id !== id) return t;
+        const newDays = t.days.includes(day)
+          ? t.days.filter((d) => d !== day)
+          : [...t.days, day];
+        return { ...t, days: newDays };
+      })
+    );
+  };
+
+  const deleteTabSetting = (id) => {
+    setTabSettings(tabSettings.filter((t) => t.id !== id));
+  };
+
+  // --- Core Task Logic ---
   const toggleCompletion = (day, planIndex, itemId) => {
     setSchedule((prev) => {
       const dayData = prev[day];
@@ -418,8 +468,6 @@ export default function WeeklyScheduler() {
     });
   };
 
-  // ... (Other handlers: moveTaskToNextDay, openAddModal, openEditModal, handleModalSave, handleModalDelete, handleAddPlan, handleRemovePlan, setActivePlan, startEditingPlan, savePlanEdit, drag handlers)
-  // Kept concise for brevity, logic remains same as previous version but ensures they use the `schedule` state.
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -436,8 +484,10 @@ export default function WeeklyScheduler() {
       const nextDayData = newState[nextDay];
       const nextPlanIndex = nextDayData.activePlanIndex;
       const nextPlan = nextDayData.plans[nextPlanIndex];
-      const movedItem = { ...activeModal.item, completed: false };
-      nextPlan.items = [...nextPlan.items, movedItem];
+      nextPlan.items = [
+        ...nextPlan.items,
+        { ...activeModal.item, completed: false },
+      ];
       return newState;
     });
     closeModal();
@@ -566,7 +616,7 @@ export default function WeeklyScheduler() {
     }
   };
 
-  // Drag
+  // Drag logic omitted for brevity
   const handleDragStart = (e, item, day, planIndex, itemIndex) => {
     dragItem.current = { item, day, planIndex, itemIndex };
     dragNode.current = e.target;
@@ -621,17 +671,20 @@ export default function WeeklyScheduler() {
     } ${viewMode === "slide" ? "min-w-full w-full snap-center" : ""} ${
       viewMode === "grid" ? "w-full" : ""
     } ${
-      isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
+      isDarkMode
+        ? "bg-slate-800 border-slate-700"
+        : "bg-white/90 backdrop-blur-sm border-white/50"
     }`;
 
   return (
     <div
-      className={`min-h-screen font-sans transition-colors duration-300 ${
-        isDarkMode ? "bg-slate-900 text-slate-100" : "bg-stone-50 text-gray-900"
+      className={`min-h-screen font-sans transition-colors duration-500 bg-cover bg-center bg-fixed ${
+        wallpapers[wallpaper] || wallpapers.default
       }`}
       onClick={() => {
         if (editingPlan) savePlanEdit();
         if (openMenu) setOpenMenu(null);
+        if (showWallpapers) setShowWallpapers(false);
       }}
     >
       {/* Header */}
@@ -649,23 +702,17 @@ export default function WeeklyScheduler() {
           <div className="flex flex-col flex-grow max-w-md">
             <div className="flex justify-between items-end mb-1">
               <span
-                className={`text-xs font-bold uppercase tracking-widest ${
-                  isDarkMode ? "text-indigo-400" : "text-indigo-600"
-                }`}
+                className={`text-xs font-bold uppercase tracking-widest ${baseTextColor}`}
               >
                 Week Level {weeklyStats.level}
               </span>
-              <span
-                className={`text-[10px] font-medium ${
-                  isDarkMode ? "text-slate-400" : "text-slate-500"
-                }`}
-              >
+              <span className={`text-[10px] font-medium ${mutedTextColor}`}>
                 {weeklyStats.currentXP} XP
               </span>
             </div>
             <div
               className={`h-2.5 w-full rounded-full overflow-hidden ${
-                isDarkMode ? "bg-slate-700" : "bg-gray-200"
+                isDarkMode ? "bg-black/30" : "bg-white/50"
               }`}
             >
               <div
@@ -677,23 +724,87 @@ export default function WeeklyScheduler() {
         </div>
 
         <div className="flex gap-2 items-center">
-          {/* History Button */}
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowWallpapers(!showWallpapers);
+              }}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+              }`}
+              title="Wallpapers"
+            >
+              <Palette className="w-5 h-5 text-pink-500" />
+            </button>
+            {showWallpapers && (
+              <div
+                className={`absolute right-0 mt-2 w-40 rounded-xl shadow-xl z-50 border overflow-hidden p-2 grid grid-cols-1 gap-1 ${
+                  isDarkMode
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-gray-100"
+                }`}
+              >
+                <button
+                  onClick={() => setWallpaper("default")}
+                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
+                >
+                  <div className="w-4 h-4 rounded-full border bg-gray-100"></div>{" "}
+                  Default
+                </button>
+                <button
+                  onClick={() => setWallpaper("nature")}
+                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
+                >
+                  <div className="w-4 h-4 rounded-full bg-green-600"></div>{" "}
+                  Nature
+                </button>
+                <button
+                  onClick={() => setWallpaper("ocean")}
+                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
+                >
+                  <div className="w-4 h-4 rounded-full bg-blue-600"></div> Ocean
+                </button>
+                <button
+                  onClick={() => setWallpaper("sunset")}
+                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
+                >
+                  <div className="w-4 h-4 rounded-full bg-orange-500"></div>{" "}
+                  Sunset
+                </button>
+                <button
+                  onClick={() => setWallpaper("fall")}
+                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
+                >
+                  <div className="w-4 h-4 rounded-full bg-red-700"></div> Fall
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setShowSettings(true)}
+            className={`p-2 rounded-lg transition-colors ${
+              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+            }`}
+            title="Settings"
+          >
+            <Settings className="w-5 h-5 text-slate-500" />
+          </button>
+
           <button
             onClick={() => setShowHistory(true)}
             className={`p-2 rounded-lg transition-colors ${
-              isDarkMode
-                ? "bg-slate-700 hover:bg-slate-600"
-                : "bg-white hover:bg-gray-100 shadow-sm"
+              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
             }`}
             title="View History"
           >
             <ScrollText className="w-5 h-5 text-indigo-500" />
           </button>
-
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className={`p-2 rounded-lg transition-colors ${
-              isDarkMode ? "bg-slate-700" : "bg-white shadow-sm"
+              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
             }`}
           >
             {isDarkMode ? (
@@ -705,17 +816,15 @@ export default function WeeklyScheduler() {
 
           <div
             className={`flex p-1 rounded-lg ${
-              isDarkMode ? "bg-slate-800" : "bg-gray-200"
+              isDarkMode ? "bg-slate-800" : "bg-white/80 shadow-sm"
             }`}
           >
             <button
               onClick={() => setViewMode("slide")}
               className={`p-1.5 rounded-md ${
                 viewMode === "slide"
-                  ? isDarkMode
-                    ? "bg-slate-600"
-                    : "bg-white shadow"
-                  : ""
+                  ? "bg-indigo-100 text-indigo-600"
+                  : "text-gray-400"
               }`}
             >
               <GalleryHorizontal className="w-4 h-4" />
@@ -724,10 +833,8 @@ export default function WeeklyScheduler() {
               onClick={() => setViewMode("landscape")}
               className={`p-1.5 rounded-md ${
                 viewMode === "landscape"
-                  ? isDarkMode
-                    ? "bg-slate-600"
-                    : "bg-white shadow"
-                  : ""
+                  ? "bg-indigo-100 text-indigo-600"
+                  : "text-gray-400"
               }`}
             >
               <Columns className="w-4 h-4" />
@@ -736,10 +843,8 @@ export default function WeeklyScheduler() {
               onClick={() => setViewMode("grid")}
               className={`p-1.5 rounded-md ${
                 viewMode === "grid"
-                  ? isDarkMode
-                    ? "bg-slate-600"
-                    : "bg-white shadow"
-                  : ""
+                  ? "bg-indigo-100 text-indigo-600"
+                  : "text-gray-400"
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -750,61 +855,12 @@ export default function WeeklyScheduler() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setOpenMenu(openMenu === "data" ? null : "data");
-              }}
-              className={`p-2 rounded-lg ${
-                isDarkMode ? "bg-slate-700" : "bg-white shadow-sm"
-              }`}
-            >
-              <FileJson className="w-5 h-5" />
-            </button>
-            {openMenu === "data" && (
-              <div
-                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
-                  isDarkMode
-                    ? "bg-slate-800 border-slate-700"
-                    : "bg-white border-gray-100"
-                }`}
-              >
-                <button
-                  onClick={handleExport}
-                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
-                    isDarkMode
-                      ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50"
-                  }`}
-                >
-                  <Download className="w-4 h-4" /> Save Backup
-                </button>
-                <label
-                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 cursor-pointer ${
-                    isDarkMode
-                      ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50"
-                  }`}
-                >
-                  <Upload className="w-4 h-4" /> Load Backup{" "}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".json"
-                    onChange={handleImport}
-                  />
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
                 setOpenMenu(openMenu === "reset" ? null : "reset");
               }}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold ${
                 isDarkMode
-                  ? "bg-indigo-900/50 text-indigo-300"
-                  : "bg-indigo-50 text-indigo-600"
+                  ? "bg-indigo-900/80 text-indigo-300"
+                  : "bg-white/80 shadow-sm text-indigo-600"
               }`}
             >
               <RefreshCw className="w-4 h-4" /> Reset{" "}
@@ -823,7 +879,7 @@ export default function WeeklyScheduler() {
                   className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
                     isDarkMode
                       ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50"
+                      : "hover:bg-gray-50 text-gray-700"
                   }`}
                 >
                   <RotateCcw className="w-4 h-4 text-indigo-500" /> New Week
@@ -833,7 +889,7 @@ export default function WeeklyScheduler() {
                   className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
                     isDarkMode
                       ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50"
+                      : "hover:bg-gray-50 text-gray-700"
                   }`}
                 >
                   <CalendarDays className="w-4 h-4 text-blue-500" /> New Month
@@ -844,7 +900,7 @@ export default function WeeklyScheduler() {
                   className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
                     isDarkMode
                       ? "hover:bg-red-900/20 text-red-400"
-                      : "hover:bg-red-50"
+                      : "hover:bg-red-50 text-red-600"
                   }`}
                 >
                   <Eraser className="w-4 h-4" /> Clear All
@@ -872,36 +928,19 @@ export default function WeeklyScheduler() {
               ref={(el) => (dayRefs.current[day] = el)}
               className={`${cardClasses(day)} ${
                 isDragging ? "opacity-90" : ""
-              } ${isToday ? "ring-2 ring-indigo-500" : ""}`}
+              } ${isToday ? "ring-4 ring-indigo-400/50" : ""}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDropOnEmpty(e, day)}
             >
-              {/* Daily / Monthly Progress Bar */}
               {items.length > 0 && (
                 <div
                   className={`p-2 border-b ${
                     isDarkMode
                       ? "bg-slate-900/50 border-slate-700"
-                      : "bg-gray-50 border-gray-100"
+                      : "bg-gray-50/50 border-gray-100"
                   }`}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
-                      {isMonthly ? "Month Goal" : "XP Progress"}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold ${
-                        isMonthly ? "text-blue-500" : "text-indigo-500"
-                      }`}
-                    >
-                      {progress}%
-                    </span>
-                  </div>
-                  <div
-                    className={`w-full h-3 rounded-full overflow-hidden relative shadow-inner ${
-                      isDarkMode ? "bg-slate-700" : "bg-gray-200"
-                    }`}
-                  >
+                  <div className="w-full h-2 rounded-full overflow-hidden relative shadow-inner bg-gray-200/50">
                     <div
                       className={`h-full rounded-full transition-all duration-700 ease-out flex items-center justify-end ${
                         isComplete
@@ -911,14 +950,7 @@ export default function WeeklyScheduler() {
                           : "bg-indigo-500"
                       }`}
                       style={{ width: `${Math.max(progress, 5)}%` }}
-                    >
-                      {isComplete && (
-                        <Zap
-                          className="w-2.5 h-2.5 text-white mr-0.5 animate-spin"
-                          fill="currentColor"
-                        />
-                      )}
-                    </div>
+                    />
                   </div>
                 </div>
               )}
@@ -926,10 +958,14 @@ export default function WeeklyScheduler() {
               <div
                 className={`p-4 border-b ${
                   isDarkMode ? "border-slate-700" : "border-gray-100"
-                }`}
+                } bg-opacity-50`}
               >
                 <div className="flex justify-between items-center mb-2">
-                  <h2 className="font-bold uppercase tracking-wider text-lg flex items-center gap-2">
+                  <h2
+                    className={`font-bold uppercase tracking-wider text-lg flex items-center gap-2 ${
+                      isDarkMode ? "text-white" : "text-gray-800"
+                    }`}
+                  >
                     {day}
                     {isToday && (
                       <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full">
@@ -1000,7 +1036,7 @@ export default function WeeklyScheduler() {
               <div
                 className={`flex-grow overflow-y-auto ${
                   viewMode === "landscape" || viewMode === "slide"
-                    ? "p-3 max-h-[60vh]"
+                    ? "p-3 max-h-[60vh] md:max-h-[75vh] lg:max-h-[80vh]"
                     : "p-4 min-h-[150px]"
                 }`}
               >
@@ -1104,6 +1140,111 @@ export default function WeeklyScheduler() {
         })}
       </div>
 
+      {/* --- Settings Modal --- */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col ${
+              isDarkMode ? "bg-slate-800 text-white" : "bg-white text-gray-900"
+            }`}
+          >
+            <div
+              className={`p-4 border-b flex justify-between items-center ${
+                isDarkMode ? "border-slate-700" : "border-gray-100"
+              }`}
+            >
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Settings className="w-5 h-5" /> Settings
+              </h3>
+              <button onClick={() => setShowSettings(false)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              <div className="mb-6">
+                <h4 className="font-bold mb-1">Auto-Create Tabs</h4>
+                <p className="text-xs opacity-60 mb-4">
+                  Tabs to automatically create when you start a new week.
+                </p>
+
+                <div className="space-y-4">
+                  {tabSettings.map((tab, idx) => (
+                    <div
+                      key={tab.id}
+                      className={`p-3 rounded-xl border ${
+                        isDarkMode
+                          ? "bg-slate-900 border-slate-700"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={tab.name}
+                          onChange={(e) =>
+                            updateTabSetting(tab.id, "name", e.target.value)
+                          }
+                          className={`flex-grow p-2 rounded text-sm font-bold border ${
+                            isDarkMode
+                              ? "bg-slate-800 border-slate-600"
+                              : "bg-white border-gray-300"
+                          }`}
+                          placeholder="Tab Name (e.g. Work)"
+                        />
+                        <button
+                          onClick={() => deleteTabSetting(tab.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {daysOrder
+                          .filter((d) => d !== "Monthly")
+                          .map((day) => (
+                            <button
+                              key={day}
+                              onClick={() => toggleTabDay(tab.id, day)}
+                              className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                                tab.days.includes(day)
+                                  ? "bg-indigo-500 text-white border-indigo-600"
+                                  : isDarkMode
+                                  ? "bg-slate-800 border-slate-600 hover:bg-slate-700"
+                                  : "bg-white border-gray-300 hover:bg-gray-100"
+                              }`}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={addTabSetting}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-400 font-bold rounded-xl mt-3 hover:bg-gray-50 hover:text-gray-500 transition-colors"
+                >
+                  + Add Another Tab Rule
+                </button>
+              </div>
+            </div>
+            <div
+              className={`p-4 border-t ${
+                isDarkMode ? "border-slate-700" : "border-gray-100"
+              }`}
+            >
+              <button
+                onClick={() => setShowSettings(false)}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- History Modal --- */}
       {showHistory && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1129,7 +1270,7 @@ export default function WeeklyScheduler() {
             <div className="p-4 overflow-y-auto flex-grow space-y-3">
               {history.length === 0 ? (
                 <div className="text-center py-10 text-gray-400 italic">
-                  No history yet. Start a new week or month to save progress!
+                  No history yet.
                 </div>
               ) : (
                 history.map((entry) => (
@@ -1195,7 +1336,6 @@ export default function WeeklyScheduler() {
                         />
                       </div>
                     </div>
-                    {/* Expanded Items */}
                     {expandedHistoryId === entry.id && (
                       <div className="mt-3 pt-3 border-t border-gray-200/20 text-xs opacity-80 pl-2 border-l-2 border-indigo-200 ml-2">
                         <div className="grid grid-cols-2 gap-2">
