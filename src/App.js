@@ -614,6 +614,7 @@ export default function WeeklyScheduler() {
           setSchedule(data.schedule);
           if (data.history) setHistory(data.history);
           if (data.tabSettings) setTabSettings(data.tabSettings);
+          alert("Import Successful!");
         }
       } catch (err) {
         alert("Error reading file");
@@ -1019,10 +1020,9 @@ export default function WeeklyScheduler() {
           </div>
         </div>
 
-        {/* --- MOBILE-FRIENDLY SCROLLABLE TOOLBAR (Fixed Wrapping) --- */}
+        {/* --- MOBILE-FRIENDLY TOOLBAR (Fixed Clipping) --- */}
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
           <div className="relative shrink-0">
-            {/* Unified Menu Button (The Gear) */}
             <button
               onClick={() => setShowSettings(true)}
               className={`p-2 rounded-lg shrink-0 transition-colors ${
@@ -1127,57 +1127,6 @@ export default function WeeklyScheduler() {
                 >
                   <Eraser className="w-4 h-4" /> Clear All
                 </button>
-              </div>
-            )}
-          </div>
-
-          {/* Added: Direct Data Menu Access for Restore */}
-          <div className="relative shrink-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenMenu(openMenu === "data" ? null : "data");
-              }}
-              className={`p-2 rounded-lg shrink-0 transition-colors ${
-                isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
-              }`}
-              title="Data Import/Export"
-            >
-              <FileJson className="w-5 h-5 text-indigo-500" />
-            </button>
-            {openMenu === "data" && (
-              <div
-                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
-                  isDarkMode
-                    ? "bg-slate-800 border-slate-700"
-                    : "bg-white border-gray-100"
-                }`}
-              >
-                <button
-                  onClick={handleExport}
-                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
-                    isDarkMode
-                      ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <Download className="w-4 h-4" /> Download Backup
-                </button>
-                <label
-                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 cursor-pointer ${
-                    isDarkMode
-                      ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <Upload className="w-4 h-4" /> Import Backup{" "}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".json"
-                    onChange={handleImport}
-                  />
-                </label>
               </div>
             )}
           </div>
