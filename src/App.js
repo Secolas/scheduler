@@ -85,6 +85,7 @@ const ShibaAvatar = ({
   isPeeking = false,
   isBarking = false,
   size = "large",
+  className = "mx-auto mb-6",
 }) => {
   // Map eye position (0-100) to movement range (-8px to +8px)
   const eyeOffset = (eyePosition / 100) * 16 - 8;
@@ -98,7 +99,7 @@ const ShibaAvatar = ({
 
   return (
     <div
-      className={`${containerClass} relative mx-auto mb-6 transition-all duration-300 z-10 flex items-center justify-center`}
+      className={`${containerClass} relative transition-all duration-300 z-10 flex items-center justify-center ${className}`}
     >
       {/* Barking Bubble - Now on the RIGHT side */}
       {isBarking && (
@@ -1129,6 +1130,7 @@ export default function WeeklyScheduler() {
             isPeeking={false}
             isBarking={isBarking}
             size="small"
+            className="mx-0"
           />
 
           <div className="flex flex-col flex-grow max-w-md">
