@@ -38,6 +38,8 @@ import {
   LogOut,
   Lock,
   User,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -51,20 +53,27 @@ import {
   getDoc,
 } from "firebase/firestore";
 
-// --- FIREBASE CONFIGURATION ---
-const firebaseConfig =
-  typeof __firebase_config !== "undefined"
-    ? JSON.parse(__firebase_config)
-    : null;
-const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+// --- YOUR FIREBASE CONFIGURATION ---
+const firebaseConfig = {
+  apiKey: "AIzaSyD86RWMHQRYr1ZdHIjEThIzTc0_mH-B5Zw",
+  authDomain: "scheduler-cbbf2.firebaseapp.com",
+  projectId: "scheduler-cbbf2",
+  storageBucket: "scheduler-cbbf2.firebasestorage.app",
+  messagingSenderId: "406081401604",
+  appId: "1:406081401604:web:c85e75b00a973542391651",
+  measurementId: "G-3RGXBEJKLR",
+};
 
+// Initialize Firebase
 let db = null;
 let auth = null;
 
-if (firebaseConfig) {
+try {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+} catch (e) {
+  console.error("Firebase Initialization Error:", e);
 }
 
 export default function WeeklyScheduler() {
@@ -81,14 +90,20 @@ export default function WeeklyScheduler() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [wallpaper, setWallpaper] = useState("default");
 
-  // Custom Tab Settings
-  const [tabSettings, setTabSettings] = useState([
-    {
-      id: 1,
-      name: "Work",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-    },
-  ]);
+  // Multi-Tab Settings
+  const [tabSettings, setTabSettings] = useState(() => {
+    // We try to load this early for initial render, but Sync will overwrite it
+    const saved = localStorage.getItem("tabSettings");
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            id: 1,
+            name: "Work",
+            days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          },
+        ];
+  });
 
   // Initial Empty State
   const initialSchedule = {
@@ -132,33 +147,33 @@ export default function WeeklyScheduler() {
   const [schedule, setSchedule] = useState(initialSchedule);
   const [history, setHistory] = useState([]);
 
-  // --- FIREBASE CONNECTION ---
+  // --- DATA LOADING & SYNC ---
   useEffect(() => {
-    const initAuth = async () => {
-      if (auth && !auth.currentUser) {
-        if (
-          !(typeof __initial_auth_token !== "undefined" && __initial_auth_token)
-        ) {
-          await signInAnonymously(auth);
+    if (!user) return;
+
+    // A. OFFLINE MODE (LocalStorage)
+    if (!db) {
+      const localData = localStorage.getItem(`data_${user.username}`);
+      if (localData) {
+        const parsed = JSON.parse(localData);
+        if (parsed.pin === user.pin) {
+          setSchedule(parsed.schedule || initialSchedule);
+          setHistory(parsed.history || []);
+          setTabSettings(parsed.tabSettings || []);
+          setWallpaper(parsed.wallpaper || "default");
+          if (parsed.isDarkMode !== undefined) setIsDarkMode(parsed.isDarkMode);
         }
       }
+      return;
+    }
+
+    // B. ONLINE MODE (Firebase)
+    const initAuth = async () => {
+      if (auth && !auth.currentUser) await signInAnonymously(auth);
     };
     initAuth();
-  }, []);
 
-  // Sync: Listen for Cloud Updates
-  useEffect(() => {
-    if (!user || !db) return;
-
-    const docRef = doc(
-      db,
-      "artifacts",
-      appId,
-      "public",
-      "data",
-      "schedules",
-      user.username
-    );
+    const docRef = doc(db, "schedules", user.username);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -174,44 +189,43 @@ export default function WeeklyScheduler() {
     return () => unsubscribe();
   }, [user]);
 
-  // Sync: Save Changes to Cloud (Debounced)
+  // --- DATA SAVING ---
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    if (!user || !db) return;
+    if (!user) return;
 
-    const saveData = setTimeout(async () => {
-      const docRef = doc(
-        db,
-        "artifacts",
-        appId,
-        "public",
-        "data",
-        "schedules",
-        user.username
-      );
-      await setDoc(
-        docRef,
-        {
-          pin: user.pin,
-          schedule,
-          history,
-          tabSettings,
-          wallpaper,
-          isDarkMode,
-          lastUpdated: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    }, 1000);
+    const dataToSave = {
+      pin: user.pin,
+      schedule,
+      history,
+      tabSettings,
+      wallpaper,
+      isDarkMode,
+      lastUpdated: new Date().toISOString(),
+    };
 
-    return () => clearTimeout(saveData);
+    // Always save to LocalStorage (Offline Backup)
+    localStorage.setItem(`data_${user.username}`, JSON.stringify(dataToSave));
+
+    // Save to Firebase (if connected)
+    if (db) {
+      const saveData = setTimeout(async () => {
+        try {
+          const docRef = doc(db, "schedules", user.username);
+          await setDoc(docRef, dataToSave, { merge: true });
+        } catch (e) {
+          console.error("Sync error", e);
+        }
+      }, 1000);
+      return () => clearTimeout(saveData);
+    }
   }, [schedule, history, tabSettings, wallpaper, isDarkMode, user]);
 
-  // --- Local Preference Fallback (Theme only) ---
+  // --- Helper Logic ---
   useEffect(() => {
     if (!user) {
       const savedTheme = localStorage.getItem("theme");
@@ -225,7 +239,6 @@ export default function WeeklyScheduler() {
   const calculateWeeklyStats = () => {
     let totalTasks = 0;
     let completedTasks = 0;
-
     [
       "Monday",
       "Tuesday",
@@ -243,14 +256,12 @@ export default function WeeklyScheduler() {
         });
       }
     });
-
     const currentXP = completedTasks * XP_PER_TASK;
     const level = Math.floor(currentXP / 300) + 1;
     const nextLevelXP = level * 300;
     const prevLevelXP = (level - 1) * 300;
     const progressToNext =
       ((currentXP - prevLevelXP) / (nextLevelXP - prevLevelXP)) * 100;
-
     return { level, currentXP, nextLevelXP, progressToNext };
   };
 
@@ -405,51 +416,56 @@ export default function WeeklyScheduler() {
       return;
     }
 
-    try {
-      const docRef = doc(
-        db,
-        "artifacts",
-        appId,
-        "public",
-        "data",
-        "schedules",
-        username
-      );
-      const docSnap = await getDoc(docRef);
+    // ONLINE CHECK
+    if (db) {
+      try {
+        const docRef = doc(db, "schedules", username);
+        const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        if (docSnap.data().pin === pin) {
-          const userData = { username, pin };
-          setUser(userData);
-          localStorage.setItem("schedulerUser", JSON.stringify(userData));
+        if (docSnap.exists()) {
+          if (docSnap.data().pin === pin) {
+            loginSuccess(username, pin);
+          } else {
+            setAuthError("Incorrect PIN.");
+          }
         } else {
-          setAuthError("Incorrect PIN.");
+          if (window.confirm(`Create new online account for "${username}"?`)) {
+            // New user online
+            loginSuccess(username, pin);
+            // The useEffect will handle saving the initial data
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        setAuthError("Connection Error. Ensure Database Rules are Open.");
+      }
+    } else {
+      // OFFLINE LOGIN
+      const localData = localStorage.getItem(`data_${username}`);
+      if (localData) {
+        const parsed = JSON.parse(localData);
+        if (parsed.pin === pin) {
+          loginSuccess(username, pin);
+        } else {
+          setAuthError("Incorrect PIN for this offline user.");
         }
       } else {
-        if (window.confirm(`Create new account for "${username}"?`)) {
-          const userData = { username, pin };
-          await setDoc(docRef, {
-            pin,
-            schedule: initialSchedule,
-            history: [],
-            tabSettings: [
-              {
-                id: 1,
-                name: "Work",
-                days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-              },
-            ],
-            createdAt: new Date().toISOString(),
-          });
-          setUser(userData);
-          localStorage.setItem("schedulerUser", JSON.stringify(userData));
+        if (
+          window.confirm(
+            `Create new OFFLINE account for "${username}"? (Data will only be saved on this device)`
+          )
+        ) {
+          loginSuccess(username, pin);
         }
       }
-    } catch (err) {
-      console.error(err);
-      setAuthError("Connection Error.");
     }
     setIsAuthLoading(false);
+  };
+
+  const loginSuccess = (username, pin) => {
+    const userData = { username, pin };
+    setUser(userData);
+    localStorage.setItem("schedulerUser", JSON.stringify(userData));
   };
 
   const handleLogout = () => {
@@ -599,7 +615,7 @@ export default function WeeklyScheduler() {
     });
   };
 
-  // ... (Move, Add, Edit, Delete, Plan Ops, Drag - Standard logic, updated to use 'schedule' state)
+  // ... (Move, Add, Edit, Delete, Plan Ops, Drag)
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -852,12 +868,33 @@ export default function WeeklyScheduler() {
               )}
             </button>
           </form>
-          {!firebaseConfig && (
-            <div className="mt-6 p-4 bg-yellow-50 text-yellow-800 text-xs rounded-xl border border-yellow-100">
-              <strong>⚠️ Setup Required:</strong> To use this online, you'll
-              need to provide your Firebase Configuration keys in the code.
+
+          <div className="mt-6 flex flex-col gap-2">
+            <div
+              className={`p-3 rounded-lg text-xs border ${
+                db
+                  ? "bg-green-50 text-green-700 border-green-200"
+                  : "bg-yellow-50 text-yellow-800 border-yellow-100"
+              }`}
+            >
+              {db ? (
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-4 h-4" /> <strong>Online Mode:</strong>{" "}
+                  Syncing is ACTIVE.
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CloudOff className="w-4 h-4" />{" "}
+                  <strong>Offline Mode:</strong> Data saved to this device only.
+                </div>
+              )}
             </div>
-          )}
+            {!db && (
+              <p className="text-[10px] text-gray-400 text-center">
+                To enable sync, add Firebase keys to the code.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1361,12 +1398,14 @@ export default function WeeklyScheduler() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
             <div className="p-6 overflow-y-auto">
               <div className="mb-6">
                 <h4 className="font-bold mb-1">Auto-Create Tabs</h4>
                 <p className="text-xs opacity-60 mb-4">
                   Tabs to automatically create when you start a new week.
                 </p>
+
                 <div className="space-y-4">
                   {tabSettings.map((tab, idx) => (
                     <div
@@ -1562,7 +1601,7 @@ export default function WeeklyScheduler() {
         </div>
       )}
 
-      {/* --- Add/Edit Modal (Existing) --- */}
+      {/* --- Add/Edit Modal --- */}
       {activeModal.isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
