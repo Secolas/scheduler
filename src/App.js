@@ -42,6 +42,7 @@ import {
   CloudOff,
   Menu,
   Layers,
+  ArrowRightCircle,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -289,6 +290,7 @@ export default function WeeklyScheduler() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showWallpapers, setShowWallpapers] = useState(false);
   const [settingsTab, setSettingsTab] = useState("appearance");
 
   const [openMenu, setOpenMenu] = useState(null);
@@ -435,60 +437,43 @@ export default function WeeklyScheduler() {
             setAuthError("Incorrect PIN.");
           }
         } else {
-          // Check for old local data to migrate
-          const oldSchedule = localStorage.getItem("mySchedule");
-          const oldHistory = localStorage.getItem("myHistory");
-          const oldTabs = localStorage.getItem("tabSettings");
-          const hasOldData = oldSchedule && JSON.parse(oldSchedule).Monday;
+          // Silent create new account (no confirm)
+          const userData = { username, pin };
 
-          const confirmMsg = hasOldData
-            ? `Create new account for "${username}" and IMPORT your existing tasks from this phone?`
-            : `Create new online account for "${username}"?`;
+          await setDoc(docRef, {
+            pin,
+            schedule: initialSchedule,
+            history: [],
+            tabSettings: [
+              {
+                id: 1,
+                name: "Work",
+                days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            migratedFromLocal: false,
+          });
 
-          if (window.confirm(confirmMsg)) {
-            const userData = { username, pin };
+          // Set local state
+          setSchedule(initialSchedule);
+          setHistory([]);
+          setTabSettings([
+            {
+              id: 1,
+              name: "Work",
+              days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            },
+          ]);
 
-            const scheduleToSave = hasOldData
-              ? JSON.parse(oldSchedule)
-              : initialSchedule;
-            const historyToSave = oldHistory ? JSON.parse(oldHistory) : [];
-            const tabsToSave = oldTabs
-              ? JSON.parse(oldTabs)
-              : [
-                  {
-                    id: 1,
-                    name: "Work",
-                    days: [
-                      "Monday",
-                      "Tuesday",
-                      "Wednesday",
-                      "Thursday",
-                      "Friday",
-                    ],
-                  },
-                ];
-
-            await setDoc(docRef, {
-              pin,
-              schedule: scheduleToSave,
-              history: historyToSave,
-              tabSettings: tabsToSave,
-              createdAt: new Date().toISOString(),
-              migratedFromLocal: hasOldData,
-            });
-
-            setSchedule(scheduleToSave);
-            setHistory(historyToSave);
-            setTabSettings(tabsToSave);
-
-            completeLogin();
-          }
+          completeLogin();
         }
       } catch (err) {
         console.error(err);
         setAuthError("Connection Error. Ensure Database Rules are Open.");
       }
     } else {
+      // Offline Fallback
       const localData = localStorage.getItem(`data_${username}`);
       if (localData) {
         const parsed = JSON.parse(localData);
@@ -498,13 +483,9 @@ export default function WeeklyScheduler() {
           setAuthError("Incorrect PIN for this offline user.");
         }
       } else {
-        if (window.confirm(`Create new OFFLINE account for "${username}"?`)) {
-          const oldSchedule = localStorage.getItem("mySchedule");
-          if (oldSchedule) {
-            setSchedule(JSON.parse(oldSchedule));
-          }
-          completeLogin();
-        }
+        // Create new offline user silently
+        setSchedule(initialSchedule);
+        completeLogin();
       }
     }
     setIsAuthLoading(false);
@@ -598,10 +579,10 @@ export default function WeeklyScheduler() {
     a.remove();
     setOpenMenu(null);
   };
+
   const handleImport = (e) => {
-    // Reset value to allow re-uploading same file
     const file = e.target.files[0];
-    e.target.value = null;
+    e.target.value = null; // Reset input
 
     if (!file) return;
 
@@ -610,14 +591,31 @@ export default function WeeklyScheduler() {
     fileReader.onload = (evt) => {
       try {
         const data = JSON.parse(evt.target.result);
-        if (data.schedule && window.confirm("Overwrite data?")) {
-          setSchedule(data.schedule);
-          if (data.history) setHistory(data.history);
-          if (data.tabSettings) setTabSettings(data.tabSettings);
-          alert("Import Successful!");
+
+        // Handle different backup structures (New vs Old)
+        if (data.schedule) {
+          // New Full Backup
+          if (
+            window.confirm(
+              "Restore this backup? Current data will be overwritten."
+            )
+          ) {
+            setSchedule(data.schedule);
+            if (data.history) setHistory(data.history);
+            if (data.tabSettings) setTabSettings(data.tabSettings);
+            alert("Success! Schedule restored.");
+          }
+        } else if (data.Monday) {
+          // Legacy Backup (Just the schedule object)
+          if (window.confirm("Restore legacy backup?")) {
+            setSchedule(data);
+            alert("Success! Legacy schedule restored.");
+          }
+        } else {
+          alert("Error: Invalid Backup File Format");
         }
       } catch (err) {
-        alert("Error reading file");
+        alert("Error reading file: " + err.message);
       }
     };
     setOpenMenu(null);
@@ -855,90 +853,64 @@ export default function WeeklyScheduler() {
   };
   const handleDragEnd = () => setIsDragging(false);
 
-  // --- Render (LOGIN SCREEN) ---
+  // --- Render (LOGIN SCREEN - MINIMALIST) ---
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center p-4 font-sans">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-300">
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4 font-sans">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-8 transform transition-all hover:scale-[1.01]">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center p-4 bg-indigo-100 rounded-full text-indigo-600 mb-4 shadow-inner">
-              <Calendar className="w-10 h-10" />
+            <div className="inline-flex items-center justify-center p-3 bg-indigo-50 rounded-2xl text-indigo-600 mb-4 shadow-sm">
+              <Calendar className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              Weekly Scheduler
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
+              Welcome Back
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              Sync your life across all devices
+            <p className="text-gray-400 text-sm mt-1">
+              Enter your details to sync
             </p>
           </div>
+
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
-                Username
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  name="username"
-                  type="text"
-                  placeholder="Enter a unique username"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
-                />
-              </div>
+            <div className="relative group">
+              <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input
+                name="username"
+                type="text"
+                placeholder="Username"
+                className="w-full pl-12 pr-4 py-3.5 rounded-xl border-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400 font-medium"
+              />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
-                PIN Code
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  name="pin"
-                  type="password"
-                  placeholder="4-digit PIN to protect data"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
-                />
-              </div>
+
+            <div className="relative group">
+              <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input
+                name="pin"
+                type="password"
+                placeholder="PIN Code"
+                className="w-full pl-12 pr-4 py-3.5 rounded-xl border-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400 font-medium tracking-widest"
+              />
             </div>
+
             {authError && (
-              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center font-medium border border-red-100">
+              <div className="text-red-500 text-xs text-center font-medium bg-red-50 py-2 rounded-lg">
                 {authError}
               </div>
             )}
+
             <button
               type="submit"
               disabled={isAuthLoading}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {isAuthLoading ? (
                 <RefreshCw className="w-5 h-5 animate-spin" />
               ) : (
-                "Login / Create Account"
+                <>
+                  Login <ArrowRightCircle className="w-5 h-5 opacity-50" />
+                </>
               )}
             </button>
           </form>
-
-          <div className="mt-6 flex flex-col gap-2">
-            <div
-              className={`p-3 rounded-lg text-xs border ${
-                db
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-yellow-50 text-yellow-800 border-yellow-100"
-              }`}
-            >
-              {db ? (
-                <div className="flex items-center gap-2">
-                  <Cloud className="w-4 h-4" /> <strong>Online Mode:</strong>{" "}
-                  Syncing is ACTIVE.
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <CloudOff className="w-4 h-4" />{" "}
-                  <strong>Offline Mode:</strong> Data saved to this device only.
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -1020,19 +992,16 @@ export default function WeeklyScheduler() {
           </div>
         </div>
 
-        {/* --- MOBILE-FRIENDLY TOOLBAR (Fixed Clipping) --- */}
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowSettings(true)}
-              className={`p-2 rounded-lg shrink-0 transition-colors ${
-                isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
-              }`}
-              title="System Settings"
-            >
-              <Settings className="w-5 h-5 text-slate-500" />
-            </button>
-          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            className={`p-2 rounded-lg shrink-0 transition-colors ${
+              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+            }`}
+            title="System Settings"
+          >
+            <Settings className="w-5 h-5 text-slate-500" />
+          </button>
 
           <div className="h-6 w-px bg-gray-300 mx-1 opacity-50 shrink-0"></div>
 
@@ -1085,8 +1054,9 @@ export default function WeeklyScheduler() {
                   : "bg-white/80 shadow-sm text-indigo-600"
               }`}
             >
-              <RefreshCw className="w-4 h-4" />
-              <span className="hidden sm:inline">Reset</span>
+              <RefreshCw className="w-4 h-4" />{" "}
+              <span className="hidden sm:inline">Reset</span>{" "}
+              <ChevronDown className="w-3 h-3 opacity-50" />
             </button>
             {openMenu === "reset" && (
               <div
@@ -1133,7 +1103,7 @@ export default function WeeklyScheduler() {
         </div>
       </div>
 
-      {/* --- Main Grid --- */}
+      {/* ... (Main Content, Settings, History, Modals - Same as before) */}
       <div className={`max-w-[1600px] mx-auto ${containerClasses}`}>
         {daysOrder.map((day) => {
           const dayData = schedule[day];
@@ -1362,7 +1332,7 @@ export default function WeeklyScheduler() {
         })}
       </div>
 
-      {/* --- Unified System Settings Modal --- */}
+      {/* --- Settings Modal --- */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
@@ -1383,7 +1353,6 @@ export default function WeeklyScheduler() {
               </button>
             </div>
 
-            {/* Tabs Header */}
             <div
               className={`flex border-b ${
                 isDarkMode
@@ -1409,7 +1378,6 @@ export default function WeeklyScheduler() {
             </div>
 
             <div className="p-6 overflow-y-auto">
-              {/* --- APPEARANCE TAB --- */}
               {settingsTab === "appearance" && (
                 <div className="space-y-6">
                   <div>
@@ -1439,7 +1407,6 @@ export default function WeeklyScheduler() {
                       </button>
                     </div>
                   </div>
-
                   <div>
                     <h4 className="font-bold mb-3 text-sm uppercase tracking-wider opacity-60">
                       Wallpaper
@@ -1473,8 +1440,6 @@ export default function WeeklyScheduler() {
                   </div>
                 </div>
               )}
-
-              {/* --- DATA TAB --- */}
               {settingsTab === "data" && (
                 <div className="space-y-4">
                   <button
@@ -1491,11 +1456,10 @@ export default function WeeklyScheduler() {
                     <div className="text-left">
                       <div className="font-bold">Download Backup</div>
                       <div className="text-xs opacity-60">
-                        Save your schedule to a JSON file
+                        Save schedule to file
                       </div>
                     </div>
                   </button>
-
                   <label
                     className={`w-full py-4 px-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
                       isDarkMode
@@ -1509,7 +1473,7 @@ export default function WeeklyScheduler() {
                     <div className="text-left">
                       <div className="font-bold">Import Data</div>
                       <div className="text-xs opacity-60">
-                        Restore from a backup file
+                        Restore from file
                       </div>
                     </div>
                     <input
@@ -1521,28 +1485,16 @@ export default function WeeklyScheduler() {
                   </label>
                 </div>
               )}
-
-              {/* --- TABS TAB --- */}
               {settingsTab === "tabs" && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <h4 className="font-bold">Auto-Generated Tabs</h4>
                       <p className="text-xs opacity-60">
-                        These tabs appear when you start a new week.
+                        Created on new week start.
                       </p>
                     </div>
-                    <button
-                      onClick={() => {
-                        // Placeholder for rearrange logic if implemented later
-                        // For now just visual hint
-                      }}
-                      className="text-xs flex items-center gap-1 text-indigo-500 font-bold"
-                    >
-                      <Layers className="w-3 h-3" /> Rearrange
-                    </button>
                   </div>
-
                   <div className="space-y-4">
                     {tabSettings.map((tab, idx) => (
                       <div
@@ -1565,7 +1517,7 @@ export default function WeeklyScheduler() {
                                 ? "bg-slate-800 border-slate-600"
                                 : "bg-white border-gray-300"
                             }`}
-                            placeholder="Tab Name (e.g. Work)"
+                            placeholder="Tab Name"
                           />
                           <button
                             onClick={() => deleteTabSetting(tab.id)}
@@ -1604,8 +1556,6 @@ export default function WeeklyScheduler() {
                   </button>
                 </div>
               )}
-
-              {/* --- ACCOUNT TAB --- */}
               {settingsTab === "account" && (
                 <div className="space-y-4">
                   <div
@@ -1631,7 +1581,6 @@ export default function WeeklyScheduler() {
                       Sign Out
                     </button>
                   </div>
-
                   <button
                     onClick={() => {
                       setShowSettings(false);
@@ -1648,16 +1597,13 @@ export default function WeeklyScheduler() {
                     </div>
                     <div className="text-left">
                       <div className="font-bold">View History</div>
-                      <div className="text-xs opacity-60">
-                        See past weeks and achievements
-                      </div>
+                      <div className="text-xs opacity-60">See past weeks</div>
                     </div>
                     <ChevronRight className="w-5 h-5 ml-auto opacity-30" />
                   </button>
                 </div>
               )}
             </div>
-
             <div
               className={`p-4 border-t ${
                 isDarkMode ? "border-slate-700" : "border-gray-100"
