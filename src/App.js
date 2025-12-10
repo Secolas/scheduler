@@ -34,15 +34,14 @@ import {
   ChevronRight,
   Settings,
   Palette,
-  Image as ImageIcon,
   LogOut,
   Lock,
   User,
-  Cloud,
-  CloudOff,
   Menu,
   Layers,
   ArrowRightCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -79,6 +78,158 @@ try {
   console.error("Firebase Initialization Error:", e);
 }
 
+// --- ANIMATED SHIBA COMPONENT ---
+const ShibaAvatar = ({ eyePosition, isHiding, isPeeking }) => {
+  // eyePosition is 0 to 100 (percentage of input width)
+  // Map 0-100 to eye movement range (-6px to +6px)
+  const eyeOffset = (eyePosition / 100) * 12 - 6;
+
+  return (
+    <div className="w-40 h-40 relative mx-auto mb-2 transition-all duration-300">
+      <svg
+        viewBox="0 0 120 120"
+        className="w-full h-full overflow-visible drop-shadow-xl"
+      >
+        <defs>
+          <clipPath id="face-clip">
+            <circle cx="60" cy="60" r="50" />
+          </clipPath>
+        </defs>
+
+        {/* Ears */}
+        <path
+          d="M25 45 L15 10 L50 30 Z"
+          fill="#e8a358"
+          stroke="#d18a3f"
+          strokeWidth="2"
+        />
+        <path
+          d="M95 45 L105 10 L70 30 Z"
+          fill="#e8a358"
+          stroke="#d18a3f"
+          strokeWidth="2"
+        />
+
+        {/* Head Base */}
+        <circle
+          cx="60"
+          cy="60"
+          r="50"
+          fill="#e8a358"
+          stroke="#d18a3f"
+          strokeWidth="2"
+        />
+
+        {/* White Face Markings */}
+        <path
+          d="M60 60 Q20 60 15 75 Q10 95 60 105 Q110 95 105 75 Q100 60 60 60"
+          fill="#fffdf5"
+        />
+        {/* Eyebrows */}
+        <path
+          d="M35 45 Q45 35 55 45"
+          fill="none"
+          stroke="#fffdf5"
+          strokeWidth="4"
+          opacity="0.8"
+          strokeLinecap="round"
+        />
+        <path
+          d="M85 45 Q75 35 65 45"
+          fill="none"
+          stroke="#fffdf5"
+          strokeWidth="4"
+          opacity="0.8"
+          strokeLinecap="round"
+        />
+
+        {/* EYES CONTAINER */}
+        <g
+          transform={`translate(${eyeOffset}, 0)`}
+          className="transition-transform duration-100 ease-out"
+        >
+          {/* Left Eye */}
+          <circle cx="40" cy="55" r="5" fill="#3e2723" />
+          <circle cx="42" cy="53" r="2" fill="white" />
+
+          {/* Right Eye */}
+          <circle cx="80" cy="55" r="5" fill="#3e2723" />
+          <circle cx="82" cy="53" r="2" fill="white" />
+        </g>
+
+        {/* Snout */}
+        <ellipse cx="60" cy="75" rx="8" ry="5" fill="#3e2723" />
+        <path
+          d="M60 75 L60 85 M60 85 Q50 92 45 82 M60 85 Q70 92 75 82"
+          fill="none"
+          stroke="#3e2723"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+
+        {/* Cheeks */}
+        <circle cx="30" cy="75" r="6" fill="#ffab91" opacity="0.6" />
+        <circle cx="90" cy="75" r="6" fill="#ffab91" opacity="0.6" />
+
+        {/* --- ANIMATED PAWS --- */}
+        {/* Left Paw */}
+        <g
+          className="transition-all duration-500 ease-in-out"
+          style={{
+            transform: isHiding
+              ? "translate(0, -35px) rotate(-10deg)"
+              : "translate(0, 50px)",
+            opacity: isHiding ? 1 : 0, // Fade out when down to keep clean look
+          }}
+        >
+          <circle
+            cx="30"
+            cy="90"
+            r="16"
+            fill="#fffdf5"
+            stroke="#d18a3f"
+            strokeWidth="2"
+          />
+          <path
+            d="M24 88 L24 96 M30 86 L30 96 M36 88 L36 96"
+            stroke="#d18a3f"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </g>
+
+        {/* Right Paw */}
+        <g
+          className="transition-all duration-500 ease-in-out"
+          style={{
+            transform: isHiding
+              ? isPeeking
+                ? "translate(0, 50px)"
+                : "translate(0, -35px) rotate(10deg)"
+              : "translate(0, 50px)",
+            opacity: isHiding ? 1 : 0,
+          }}
+        >
+          <circle
+            cx="90"
+            cy="90"
+            r="16"
+            fill="#fffdf5"
+            stroke="#d18a3f"
+            strokeWidth="2"
+          />
+          <path
+            d="M84 88 L84 96 M90 86 L90 96 M96 88 L96 96"
+            stroke="#d18a3f"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </g>
+      </svg>
+    </div>
+  );
+};
+
 export default function WeeklyScheduler() {
   // --- Auth State ---
   const [user, setUser] = useState(() => {
@@ -87,6 +238,12 @@ export default function WeeklyScheduler() {
   });
   const [authError, setAuthError] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Login Animation State
+  const [eyePosition, setEyePosition] = useState(50); // 0 to 100
+  const [isHiding, setIsHiding] = useState(false);
+  const [showPin, setShowPin] = useState(false); // Peeking state
+  const [shibaState, setShibaState] = useState("idle"); // Needed for state tracking
 
   // --- App State ---
   const [viewMode, setViewMode] = useState("slide");
@@ -152,8 +309,6 @@ export default function WeeklyScheduler() {
   // --- DATA LOADING & SYNC ---
   useEffect(() => {
     if (!user) return;
-
-    // A. OFFLINE MODE (LocalStorage)
     if (!db) {
       const localData = localStorage.getItem(`data_${user.username}`);
       if (localData) {
@@ -168,13 +323,10 @@ export default function WeeklyScheduler() {
       }
       return;
     }
-
-    // B. ONLINE MODE (Firebase)
     const initAuth = async () => {
       if (auth && !auth.currentUser) await signInAnonymously(auth);
     };
     initAuth();
-
     const docRef = doc(db, "schedules", user.username);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -199,7 +351,6 @@ export default function WeeklyScheduler() {
       return;
     }
     if (!user) return;
-
     const dataToSave = {
       pin: user.pin,
       schedule,
@@ -209,9 +360,7 @@ export default function WeeklyScheduler() {
       isDarkMode,
       lastUpdated: new Date().toISOString(),
     };
-
     localStorage.setItem(`data_${user.username}`, JSON.stringify(dataToSave));
-
     if (db) {
       const saveData = setTimeout(async () => {
         try {
@@ -225,7 +374,6 @@ export default function WeeklyScheduler() {
     }
   }, [schedule, history, tabSettings, wallpaper, isDarkMode, user]);
 
-  // --- Helper Logic ---
   useEffect(() => {
     if (!user) {
       const savedTheme = localStorage.getItem("theme");
@@ -235,7 +383,6 @@ export default function WeeklyScheduler() {
 
   // --- Statistics Logic ---
   const XP_PER_TASK = 50;
-
   const calculateWeeklyStats = () => {
     let totalTasks = 0;
     let completedTasks = 0;
@@ -264,7 +411,6 @@ export default function WeeklyScheduler() {
       ((currentXP - prevLevelXP) / (nextLevelXP - prevLevelXP)) * 100;
     return { level, currentXP, nextLevelXP, progressToNext };
   };
-
   const calculateMonthlyStats = () => {
     const monthlyData = schedule["Monthly"];
     let total = 0;
@@ -277,7 +423,6 @@ export default function WeeklyScheduler() {
     }
     return { percent: total === 0 ? 0 : Math.round((completed / total) * 100) };
   };
-
   const weeklyStats = calculateWeeklyStats();
   const monthlyStats = calculateMonthlyStats();
 
@@ -292,7 +437,6 @@ export default function WeeklyScheduler() {
   const [showSettings, setShowSettings] = useState(false);
   const [showWallpapers, setShowWallpapers] = useState(false);
   const [settingsTab, setSettingsTab] = useState("appearance");
-
   const [openMenu, setOpenMenu] = useState(null);
   const [modalInput, setModalInput] = useState("");
   const [modalTime, setModalTime] = useState("");
@@ -305,7 +449,6 @@ export default function WeeklyScheduler() {
   const [isDragging, setIsDragging] = useState(false);
   const dayRefs = useRef({});
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
-
   const daysOrder = [
     "Monday",
     "Tuesday",
@@ -317,7 +460,7 @@ export default function WeeklyScheduler() {
     "Monthly",
   ];
 
-  // --- Themes & Wallpapers ---
+  // --- Themes & Helpers ---
   const wallpapers = {
     default: isDarkMode ? "bg-slate-900" : "bg-stone-50",
     nature: "bg-gradient-to-br from-emerald-800 to-green-600",
@@ -325,7 +468,6 @@ export default function WeeklyScheduler() {
     sunset: "bg-gradient-to-br from-indigo-900 via-purple-800 to-orange-500",
     fall: "bg-gradient-to-br from-red-900 via-orange-800 to-yellow-600",
   };
-
   const isWallpaperActive = wallpaper !== "default";
   const baseTextColor = isWallpaperActive
     ? "text-white"
@@ -337,7 +479,6 @@ export default function WeeklyScheduler() {
     : isDarkMode
     ? "text-slate-400"
     : "text-gray-500";
-
   const getTaskStyles = (colorKey, isDark) => {
     const styles = {
       default: {
@@ -370,7 +511,6 @@ export default function WeeklyScheduler() {
       : styles[colorKey || "default"].light;
   };
 
-  // --- Helper Functions ---
   useEffect(() => {
     if (!user) return;
     const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
@@ -390,7 +530,6 @@ export default function WeeklyScheduler() {
     const completed = items.filter((i) => i.completed).length;
     return Math.round((completed / items.length) * 100);
   };
-
   const saveToHistory = (type, name, data, score) => {
     const newEntry = {
       id: Date.now(),
@@ -413,11 +552,10 @@ export default function WeeklyScheduler() {
     const pin = form.pin.value.trim();
 
     if (!username || !pin) {
-      setAuthError("Please enter username and PIN.");
+      setAuthError("Enter username & PIN");
       setIsAuthLoading(false);
       return;
     }
-
     const completeLogin = () => {
       const userData = { username, pin };
       setUser(userData);
@@ -429,17 +567,15 @@ export default function WeeklyScheduler() {
       try {
         const docRef = doc(db, "schedules", username);
         const docSnap = await getDoc(docRef);
-
         if (docSnap.exists()) {
           if (docSnap.data().pin === pin) {
             completeLogin();
           } else {
-            setAuthError("Incorrect PIN.");
+            setAuthError("Incorrect PIN");
           }
         } else {
-          // Silent create new account (no confirm)
+          // Auto Create
           const userData = { username, pin };
-
           await setDoc(docRef, {
             pin,
             schedule: initialSchedule,
@@ -454,8 +590,6 @@ export default function WeeklyScheduler() {
             createdAt: new Date().toISOString(),
             migratedFromLocal: false,
           });
-
-          // Set local state
           setSchedule(initialSchedule);
           setHistory([]);
           setTabSettings([
@@ -465,25 +599,22 @@ export default function WeeklyScheduler() {
               days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
             },
           ]);
-
           completeLogin();
         }
       } catch (err) {
         console.error(err);
-        setAuthError("Connection Error. Ensure Database Rules are Open.");
+        setAuthError("Connection Error");
       }
     } else {
-      // Offline Fallback
       const localData = localStorage.getItem(`data_${username}`);
       if (localData) {
         const parsed = JSON.parse(localData);
         if (parsed.pin === pin) {
           completeLogin();
         } else {
-          setAuthError("Incorrect PIN for this offline user.");
+          setAuthError("Incorrect PIN");
         }
       } else {
-        // Create new offline user silently
         setSchedule(initialSchedule);
         completeLogin();
       }
@@ -497,11 +628,10 @@ export default function WeeklyScheduler() {
     setSchedule(initialSchedule);
   };
 
-  // --- ACTIONS: Reset / Clear ---
+  // --- Handlers (Reset, Export, Import) ---
   const handleStartNewWeek = () => {
     if (!window.confirm("Start new WEEK? Saves history & resets tasks."))
       return;
-
     const weeklySnapshot = {};
     daysOrder.forEach((d) => {
       if (d !== "Monthly") weeklySnapshot[d] = schedule[d];
@@ -512,7 +642,6 @@ export default function WeeklyScheduler() {
       weeklySnapshot,
       weeklyStats.totalProgress || 0
     );
-
     setSchedule((prev) => {
       const newSchedule = {};
       daysOrder.forEach((dayKey) => {
@@ -520,7 +649,6 @@ export default function WeeklyScheduler() {
           newSchedule[dayKey] = prev[dayKey];
           return;
         }
-
         const plans = [{ id: `p_${dayKey}_main`, name: "Main", items: [] }];
         tabSettings.forEach((setting) => {
           if (setting.days.includes(dayKey)) {
@@ -538,7 +666,6 @@ export default function WeeklyScheduler() {
     });
     setOpenMenu(null);
   };
-
   const handleStartNewMonth = () => {
     const monthName = prompt(
       "Name this month:",
@@ -560,14 +687,11 @@ export default function WeeklyScheduler() {
     }));
     setOpenMenu(null);
   };
-
   const handleClearAll = () => {
     if (!window.confirm("Delete ALL data?")) return;
     setSchedule(initialSchedule);
     setOpenMenu(null);
   };
-
-  // --- Export/Import ---
   const handleExport = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
@@ -579,34 +703,21 @@ export default function WeeklyScheduler() {
     a.remove();
     setOpenMenu(null);
   };
-
   const handleImport = (e) => {
     const file = e.target.files[0];
-    e.target.value = null; // Reset input
-
+    e.target.value = null;
     if (!file) return;
-
     const fileReader = new FileReader();
     fileReader.readAsText(file, "UTF-8");
     fileReader.onload = (evt) => {
       try {
         const data = JSON.parse(evt.target.result);
-
-        // Handle different backup structures (New vs Old)
-        if (data.schedule) {
-          // New Full Backup
-          if (
-            window.confirm(
-              "Restore this backup? Current data will be overwritten."
-            )
-          ) {
-            setSchedule(data.schedule);
-            if (data.history) setHistory(data.history);
-            if (data.tabSettings) setTabSettings(data.tabSettings);
-            alert("Success! Schedule restored.");
-          }
+        if (data.schedule && window.confirm("Overwrite data?")) {
+          setSchedule(data.schedule);
+          if (data.history) setHistory(data.history);
+          if (data.tabSettings) setTabSettings(data.tabSettings);
+          alert("Success! Schedule restored.");
         } else if (data.Monday) {
-          // Legacy Backup (Just the schedule object)
           if (window.confirm("Restore legacy backup?")) {
             setSchedule(data);
             alert("Success! Legacy schedule restored.");
@@ -621,7 +732,7 @@ export default function WeeklyScheduler() {
     setOpenMenu(null);
   };
 
-  // --- Tabs Settings ---
+  // --- Tab/Task Handlers ---
   const addTabSetting = () => {
     setTabSettings([
       ...tabSettings,
@@ -647,8 +758,6 @@ export default function WeeklyScheduler() {
   const deleteTabSetting = (id) => {
     setTabSettings(tabSettings.filter((t) => t.id !== id));
   };
-
-  // --- Task Logic ---
   const toggleCompletion = (day, planIndex, itemId) => {
     setSchedule((prev) => {
       const dayData = prev[day];
@@ -661,8 +770,6 @@ export default function WeeklyScheduler() {
       return { ...prev, [day]: { ...dayData, plans: updatedPlans } };
     });
   };
-
-  // ... (Move, Add, Edit, Delete, Plan Ops, Drag)
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -687,7 +794,6 @@ export default function WeeklyScheduler() {
     });
     closeModal();
   };
-
   const openAddModal = (day) => {
     setModalInput("");
     setModalTime("");
@@ -703,7 +809,6 @@ export default function WeeklyScheduler() {
   const closeModal = () => {
     setActiveModal({ isOpen: false, mode: "add", day: null, item: null });
   };
-
   const handleModalSave = () => {
     if (!modalInput.trim() || !activeModal.day) return;
     const { day, mode, item } = activeModal;
@@ -745,7 +850,6 @@ export default function WeeklyScheduler() {
     });
     closeModal();
   };
-
   const handleModalDelete = () => {
     const { day, item } = activeModal;
     setSchedule((prev) => {
@@ -760,7 +864,6 @@ export default function WeeklyScheduler() {
     });
     closeModal();
   };
-
   const handleAddPlan = (day) => {
     setSchedule((prev) => {
       const d = prev[day];
@@ -810,8 +913,6 @@ export default function WeeklyScheduler() {
       setEditingPlan(null);
     }
   };
-
-  // Drag logic
   const handleDragStart = (e, item, day, planIndex, itemIndex) => {
     dragItem.current = { item, day, planIndex, itemIndex };
     dragNode.current = e.target;
@@ -853,46 +954,89 @@ export default function WeeklyScheduler() {
   };
   const handleDragEnd = () => setIsDragging(false);
 
-  // --- Render (LOGIN SCREEN - MINIMALIST) ---
+  // --- RENDER LOGIN SCREEN ---
   if (!user) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4 font-sans">
-        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-8 transform transition-all hover:scale-[1.01]">
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center p-4 font-sans relative overflow-hidden">
+        {/* Subtle Background Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-10 left-10 w-32 h-32 rounded-full bg-indigo-500 blur-3xl"></div>
+          <div className="absolute bottom-10 right-10 w-40 h-40 rounded-full bg-orange-500 blur-3xl"></div>
+        </div>
+
+        <div className="w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-8 relative z-10 border border-white/50 backdrop-blur-sm">
+          <ShibaAvatar
+            eyePosition={eyePosition}
+            isHiding={isHiding}
+            isPeeking={showPin}
+          />
+
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center p-3 bg-indigo-50 rounded-2xl text-indigo-600 mb-4 shadow-sm">
-              <Calendar className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
+            <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight mb-1">
               Welcome Back
             </h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Enter your details to sync
+            <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">
+              Access your planner
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* Username Input - Eyes Watch */}
             <div className="relative group">
-              <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+              <User className="absolute left-4 top-4 w-5 h-5 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
               <input
                 name="username"
                 type="text"
                 placeholder="Username"
-                className="w-full pl-12 pr-4 py-3.5 rounded-xl border-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400 font-medium"
+                autoComplete="off"
+                onFocus={() => {
+                  setShibaState("watching");
+                  setIsHiding(false);
+                }}
+                onChange={(e) => {
+                  // Update eye position based on text length (0 to 100%)
+                  const len = e.target.value.length;
+                  const percent = Math.min(len * 5, 100);
+                  setEyePosition(percent);
+                }}
+                className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-transparent bg-gray-50 focus:bg-white focus:border-indigo-100 focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all placeholder-gray-400 font-medium text-gray-700"
               />
             </div>
 
+            {/* PIN Input - Paws Hide Eyes */}
             <div className="relative group">
-              <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+              <Lock className="absolute left-4 top-4 w-5 h-5 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
               <input
                 name="pin"
-                type="password"
+                type={showPin ? "text" : "password"}
                 placeholder="PIN Code"
-                className="w-full pl-12 pr-4 py-3.5 rounded-xl border-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400 font-medium tracking-widest"
+                maxLength="4"
+                onFocus={() => {
+                  setShibaState("hiding");
+                  setIsHiding(true);
+                }}
+                onBlur={() => {
+                  setShibaState("idle");
+                  setIsHiding(false);
+                  setShowPin(false);
+                }}
+                className="w-full pl-12 pr-12 py-4 rounded-xl border-2 border-transparent bg-gray-50 focus:bg-white focus:border-indigo-100 focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all placeholder-gray-400 font-bold text-lg tracking-widest text-gray-700"
               />
+              <button
+                type="button"
+                onClick={() => setShowPin(!showPin)}
+                className="absolute right-4 top-4 text-gray-400 hover:text-indigo-600 transition-colors"
+              >
+                {showPin ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
             </div>
 
             {authError && (
-              <div className="text-red-500 text-xs text-center font-medium bg-red-50 py-2 rounded-lg">
+              <div className="text-red-500 text-xs text-center font-bold bg-red-50 py-3 rounded-lg border border-red-100 animate-in fade-in slide-in-from-top-1">
                 {authError}
               </div>
             )}
@@ -900,13 +1044,14 @@ export default function WeeklyScheduler() {
             <button
               type="submit"
               disabled={isAuthLoading}
-              className="w-full py-4 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+              className="w-full py-4 mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] hover:shadow-xl disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2 group"
             >
               {isAuthLoading ? (
                 <RefreshCw className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Login <ArrowRightCircle className="w-5 h-5 opacity-50" />
+                  Login{" "}
+                  <ArrowRightCircle className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" />
                 </>
               )}
             </button>
@@ -993,18 +1138,18 @@ export default function WeeklyScheduler() {
         </div>
 
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
-          <button
-            onClick={() => setShowSettings(true)}
-            className={`p-2 rounded-lg shrink-0 transition-colors ${
-              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
-            }`}
-            title="System Settings"
-          >
-            <Settings className="w-5 h-5 text-slate-500" />
-          </button>
-
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowSettings(true)}
+              className={`p-2 rounded-lg shrink-0 transition-colors ${
+                isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+              }`}
+              title="System Settings"
+            >
+              <Settings className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
           <div className="h-6 w-px bg-gray-300 mx-1 opacity-50 shrink-0"></div>
-
           <div
             className={`flex p-1 rounded-lg shrink-0 ${
               isDarkMode ? "bg-slate-800" : "bg-white/80 shadow-sm"
@@ -1041,7 +1186,6 @@ export default function WeeklyScheduler() {
               <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
-
           <div className="relative shrink-0">
             <button
               onClick={(e) => {
@@ -1103,7 +1247,7 @@ export default function WeeklyScheduler() {
         </div>
       </div>
 
-      {/* ... (Main Content, Settings, History, Modals - Same as before) */}
+      {/* ... (Main Grid, History, Modals - Same as before) ... */}
       <div className={`max-w-[1600px] mx-auto ${containerClasses}`}>
         {daysOrder.map((day) => {
           const dayData = schedule[day];
@@ -1146,7 +1290,7 @@ export default function WeeklyScheduler() {
                   </div>
                 </div>
               )}
-
+              {/* ... (Rest of Card Content) ... */}
               <div
                 className={`p-4 border-b ${
                   isDarkMode ? "border-slate-700" : "border-gray-100"
@@ -1332,7 +1476,7 @@ export default function WeeklyScheduler() {
         })}
       </div>
 
-      {/* --- Settings Modal --- */}
+      {/* --- Unified System Settings Modal --- */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
@@ -1353,6 +1497,7 @@ export default function WeeklyScheduler() {
               </button>
             </div>
 
+            {/* Tabs Header */}
             <div
               className={`flex border-b ${
                 isDarkMode
@@ -1378,6 +1523,7 @@ export default function WeeklyScheduler() {
             </div>
 
             <div className="p-6 overflow-y-auto">
+              {/* --- APPEARANCE TAB --- */}
               {settingsTab === "appearance" && (
                 <div className="space-y-6">
                   <div>
@@ -1407,6 +1553,7 @@ export default function WeeklyScheduler() {
                       </button>
                     </div>
                   </div>
+
                   <div>
                     <h4 className="font-bold mb-3 text-sm uppercase tracking-wider opacity-60">
                       Wallpaper
@@ -1440,6 +1587,8 @@ export default function WeeklyScheduler() {
                   </div>
                 </div>
               )}
+
+              {/* --- DATA TAB --- */}
               {settingsTab === "data" && (
                 <div className="space-y-4">
                   <button
@@ -1485,6 +1634,8 @@ export default function WeeklyScheduler() {
                   </label>
                 </div>
               )}
+
+              {/* --- TABS TAB --- */}
               {settingsTab === "tabs" && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
@@ -1556,6 +1707,8 @@ export default function WeeklyScheduler() {
                   </button>
                 </div>
               )}
+
+              {/* --- ACCOUNT TAB --- */}
               {settingsTab === "account" && (
                 <div className="space-y-4">
                   <div
