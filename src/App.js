@@ -79,120 +79,135 @@ try {
 }
 
 // --- ANIMATED SHIBA COMPONENT ---
-const ShibaAvatar = ({ eyePosition, isHiding, isPeeking }) => {
-  // eyePosition is 0 to 100 (percentage of input width)
-  // Map 0-100 to eye movement range (-6px to +6px)
-  const eyeOffset = (eyePosition / 100) * 12 - 6;
+const ShibaAvatar = ({
+  eyePosition = 50,
+  isHiding = false,
+  isPeeking = false,
+  isBarking = false,
+  size = "large",
+}) => {
+  // Map eye position (0-100) to movement range (-8px to +8px)
+  const eyeOffset = (eyePosition / 100) * 16 - 8;
+
+  // Size Logic
+  const containerClass = size === "small" ? "w-20 h-16" : "w-40 h-32"; // Made small size slightly larger
+  const scale = size === "small" ? 1 : 1;
+
+  // Position Config
+  const jumpOffset = -15; // Visible height for jumping
 
   return (
-    <div className="w-40 h-40 relative mx-auto mb-2 transition-all duration-300">
+    <div
+      className={`${containerClass} relative mx-auto mb-6 transition-all duration-300 z-10 flex items-center justify-center`}
+    >
+      {/* Barking Bubble - Now on the RIGHT side */}
+      {isBarking && (
+        <div className="absolute top-2 -right-24 bg-white border-2 border-indigo-100 text-indigo-600 font-bold px-3 py-1.5 rounded-xl rounded-bl-none shadow-md animate-bounce z-20 whitespace-nowrap text-sm flex items-center gap-1">
+          Woof! <span className="text-lg">🦴</span>
+        </div>
+      )}
+
       <svg
         viewBox="0 0 120 120"
-        className="w-full h-full overflow-visible drop-shadow-xl"
+        className="w-full h-full overflow-visible drop-shadow-lg"
+        style={{ transform: `scale(${scale})` }}
       >
         <defs>
           <clipPath id="face-clip">
-            <circle cx="60" cy="60" r="50" />
+            <circle cx="60" cy="70" r="45" />
           </clipPath>
         </defs>
 
+        {/* --- HEAD --- */}
         {/* Ears */}
         <path
-          d="M25 45 L15 10 L50 30 Z"
-          fill="#e8a358"
-          stroke="#d18a3f"
+          d="M20 45 L10 15 Q30 20 45 35"
+          fill="#E8A358"
+          stroke="#D18A3F"
           strokeWidth="2"
+          strokeLinejoin="round"
         />
         <path
-          d="M95 45 L105 10 L70 30 Z"
-          fill="#e8a358"
-          stroke="#d18a3f"
+          d="M100 45 L110 15 Q90 20 75 35"
+          fill="#E8A358"
+          stroke="#D18A3F"
           strokeWidth="2"
+          strokeLinejoin="round"
         />
 
-        {/* Head Base */}
+        {/* Face Base */}
         <circle
           cx="60"
-          cy="60"
-          r="50"
-          fill="#e8a358"
-          stroke="#d18a3f"
+          cy="70"
+          r="45"
+          fill="#E8A358"
+          stroke="#D18A3F"
           strokeWidth="2"
         />
 
-        {/* White Face Markings */}
+        {/* White Markings */}
         <path
-          d="M60 60 Q20 60 15 75 Q10 95 60 105 Q110 95 105 75 Q100 60 60 60"
-          fill="#fffdf5"
-        />
-        {/* Eyebrows */}
-        <path
-          d="M35 45 Q45 35 55 45"
-          fill="none"
-          stroke="#fffdf5"
-          strokeWidth="4"
-          opacity="0.8"
-          strokeLinecap="round"
-        />
-        <path
-          d="M85 45 Q75 35 65 45"
-          fill="none"
-          stroke="#fffdf5"
-          strokeWidth="4"
-          opacity="0.8"
-          strokeLinecap="round"
+          d="M60 70 Q25 70 20 85 Q15 100 60 112 Q105 100 100 85 Q95 70 60 70"
+          fill="#FFFDF5"
         />
 
-        {/* EYES CONTAINER */}
+        {/* Eyebrows */}
+        <ellipse cx="40" cy="55" rx="4" ry="2" fill="#FFFDF5" opacity="0.8" />
+        <ellipse cx="80" cy="55" rx="4" ry="2" fill="#FFFDF5" opacity="0.8" />
+
+        {/* --- EYES (Animated) --- */}
         <g
           transform={`translate(${eyeOffset}, 0)`}
-          className="transition-transform duration-100 ease-out"
+          className="transition-transform duration-150 ease-out"
         >
           {/* Left Eye */}
-          <circle cx="40" cy="55" r="5" fill="#3e2723" />
-          <circle cx="42" cy="53" r="2" fill="white" />
+          <circle cx="42" cy="65" r="5" fill="#3E2723" />
+          <circle cx="44" cy="63" r="2" fill="white" />
 
           {/* Right Eye */}
-          <circle cx="80" cy="55" r="5" fill="#3e2723" />
-          <circle cx="82" cy="53" r="2" fill="white" />
+          <circle cx="78" cy="65" r="5" fill="#3E2723" />
+          <circle cx="80" cy="63" r="2" fill="white" />
         </g>
 
         {/* Snout */}
-        <ellipse cx="60" cy="75" rx="8" ry="5" fill="#3e2723" />
+        <ellipse cx="60" cy="82" rx="7" ry="5" fill="#3E2723" />
         <path
-          d="M60 75 L60 85 M60 85 Q50 92 45 82 M60 85 Q70 92 75 82"
+          d="M60 82 L60 92 M60 92 Q52 98 48 88 M60 92 Q68 98 72 88"
           fill="none"
-          stroke="#3e2723"
+          stroke="#3E2723"
           strokeWidth="2"
           strokeLinecap="round"
         />
 
-        {/* Cheeks */}
-        <circle cx="30" cy="75" r="6" fill="#ffab91" opacity="0.6" />
-        <circle cx="90" cy="75" r="6" fill="#ffab91" opacity="0.6" />
+        {/* Cheeks (Blush) */}
+        <circle cx="28" cy="85" r="5" fill="#FFAB91" opacity="0.5" />
+        <circle cx="92" cy="85" r="5" fill="#FFAB91" opacity="0.5" />
 
         {/* --- ANIMATED PAWS --- */}
         {/* Left Paw */}
         <g
-          className="transition-all duration-500 ease-in-out"
+          className={`transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) ${
+            isBarking ? "animate-bounce" : ""
+          }`}
           style={{
             transform: isHiding
-              ? "translate(0, -35px) rotate(-10deg)"
-              : "translate(0, 50px)",
-            opacity: isHiding ? 1 : 0, // Fade out when down to keep clean look
+              ? `translate(12px, -45px)` // Exactly covers left eye
+              : isBarking
+              ? `translate(0, ${jumpOffset}px) rotate(-10deg)`
+              : "translate(0, 10px)", // Neutral: close to head
           }}
         >
           <circle
             cx="30"
-            cy="90"
-            r="16"
-            fill="#fffdf5"
-            stroke="#d18a3f"
+            cy="110"
+            r="14"
+            fill="#FFFDF5"
+            stroke="#D18A3F"
             strokeWidth="2"
           />
           <path
-            d="M24 88 L24 96 M30 86 L30 96 M36 88 L36 96"
-            stroke="#d18a3f"
+            d="M24 108 L24 116 M30 106 L30 116 M36 108 L36 116"
+            stroke="#D18A3F"
             strokeWidth="2"
             strokeLinecap="round"
           />
@@ -200,27 +215,30 @@ const ShibaAvatar = ({ eyePosition, isHiding, isPeeking }) => {
 
         {/* Right Paw */}
         <g
-          className="transition-all duration-500 ease-in-out"
+          className={`transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) ${
+            isBarking ? "animate-bounce" : ""
+          }`}
           style={{
             transform: isHiding
               ? isPeeking
-                ? "translate(0, 50px)"
-                : "translate(0, -35px) rotate(10deg)"
-              : "translate(0, 50px)",
-            opacity: isHiding ? 1 : 0,
+                ? "translate(12px, -20px) rotate(0deg)"
+                : `translate(-12px, -45px)` // Exactly covers right eye
+              : isBarking
+              ? `translate(0, ${jumpOffset}px) rotate(10deg)`
+              : "translate(0, 10px)", // Neutral: close to head
           }}
         >
           <circle
             cx="90"
-            cy="90"
-            r="16"
-            fill="#fffdf5"
-            stroke="#d18a3f"
+            cy="110"
+            r="14"
+            fill="#FFFDF5"
+            stroke="#D18A3F"
             strokeWidth="2"
           />
           <path
-            d="M84 88 L84 96 M90 86 L90 96 M96 88 L96 96"
-            stroke="#d18a3f"
+            d="M84 108 L84 116 M90 106 L90 116 M96 108 L96 116"
+            stroke="#D18A3F"
             strokeWidth="2"
             strokeLinecap="round"
           />
@@ -240,10 +258,13 @@ export default function WeeklyScheduler() {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Login Animation State
-  const [eyePosition, setEyePosition] = useState(50); // 0 to 100
+  const [eyePosition, setEyePosition] = useState(50);
   const [isHiding, setIsHiding] = useState(false);
-  const [showPin, setShowPin] = useState(false); // Peeking state
-  const [shibaState, setShibaState] = useState("idle"); // Needed for state tracking
+  const [showPin, setShowPin] = useState(false);
+  const [shibaState, setShibaState] = useState("idle"); // For internal logic
+
+  // Dashboard Shiba State
+  const [isBarking, setIsBarking] = useState(false);
 
   // --- App State ---
   const [viewMode, setViewMode] = useState("slide");
@@ -759,17 +780,27 @@ export default function WeeklyScheduler() {
     setTabSettings(tabSettings.filter((t) => t.id !== id));
   };
   const toggleCompletion = (day, planIndex, itemId) => {
+    // 1. Update State
     setSchedule((prev) => {
       const dayData = prev[day];
       const plan = dayData.plans[planIndex];
       const updatedItems = plan.items.map((item) =>
         item.id === itemId ? { ...item, completed: !item.completed } : item
       );
+
+      // Check if item was JUST completed
+      const isNowComplete = updatedItems.find((i) => i.id === itemId).completed;
+      if (isNowComplete) {
+        setIsBarking(true);
+        setTimeout(() => setIsBarking(false), 2000); // Stop barking after 2s
+      }
+
       const updatedPlans = [...dayData.plans];
       updatedPlans[planIndex] = { ...plan, items: updatedItems };
       return { ...prev, [day]: { ...dayData, plans: updatedPlans } };
     });
   };
+
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -965,20 +996,17 @@ export default function WeeklyScheduler() {
         </div>
 
         <div className="w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-8 relative z-10 border border-white/50 backdrop-blur-sm">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-extrabold text-indigo-600 tracking-tight">
+              Shiba Schedule
+            </h1>
+          </div>
+
           <ShibaAvatar
             eyePosition={eyePosition}
             isHiding={isHiding}
             isPeeking={showPin}
           />
-
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight mb-1">
-              Welcome Back
-            </h1>
-            <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">
-              Access your planner
-            </p>
-          </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Username Input - Eyes Watch */}
@@ -990,7 +1018,6 @@ export default function WeeklyScheduler() {
                 placeholder="Username"
                 autoComplete="off"
                 onFocus={() => {
-                  setShibaState("watching");
                   setIsHiding(false);
                 }}
                 onChange={(e) => {
@@ -1012,11 +1039,9 @@ export default function WeeklyScheduler() {
                 placeholder="PIN Code"
                 maxLength="4"
                 onFocus={() => {
-                  setShibaState("hiding");
                   setIsHiding(true);
                 }}
                 onBlur={() => {
-                  setShibaState("idle");
                   setIsHiding(false);
                   setShowPin(false);
                 }}
@@ -1097,15 +1122,15 @@ export default function WeeklyScheduler() {
       {/* Header */}
       <div className="max-w-[1600px] mx-auto p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 bg-opacity-90 backdrop-blur-md">
         <div className="flex items-center gap-4 flex-grow">
-          <div
-            className={`p-2.5 rounded-full shadow-md border-2 ${
-              isDarkMode
-                ? "bg-indigo-900 border-indigo-700 text-yellow-400"
-                : "bg-white border-indigo-100 text-yellow-500"
-            }`}
-          >
-            <Crown className="w-6 h-6" fill="currentColor" />
-          </div>
+          {/* DASHBOARD SHIBA (REPLACES CROWN) */}
+          <ShibaAvatar
+            eyePosition={50}
+            isHiding={false}
+            isPeeking={false}
+            isBarking={isBarking}
+            size="small"
+          />
+
           <div className="flex flex-col flex-grow max-w-md">
             <div className="flex justify-between items-end mb-1">
               <span
@@ -1773,124 +1798,6 @@ export default function WeeklyScheduler() {
         </div>
       )}
 
-      {/* --- History Modal --- */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div
-            className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${
-              isDarkMode ? "bg-slate-800" : "bg-white"
-            }`}
-          >
-            <div
-              className={`p-4 border-b flex justify-between items-center ${
-                isDarkMode
-                  ? "border-slate-700 bg-slate-800"
-                  : "border-gray-100 bg-gray-50/80"
-              }`}
-            >
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <History className="w-5 h-5 text-indigo-500" /> Past Success
-              </h3>
-              <button onClick={() => setShowHistory(false)}>
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto flex-grow space-y-3">
-              {history.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 italic">
-                  No history yet.
-                </div>
-              ) : (
-                history.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className={`p-3 rounded-xl border ${
-                      isDarkMode
-                        ? "bg-slate-700 border-slate-600"
-                        : "bg-gray-50 border-gray-200"
-                    }`}
-                  >
-                    <div
-                      className="flex justify-between items-center cursor-pointer"
-                      onClick={() =>
-                        setExpandedHistoryId(
-                          expandedHistoryId === entry.id ? null : entry.id
-                        )
-                      }
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            entry.type === "week"
-                              ? "bg-indigo-100 text-indigo-600"
-                              : "bg-blue-100 text-blue-600"
-                          }`}
-                        >
-                          {entry.type === "week" ? (
-                            <RotateCcw className="w-4 h-4" />
-                          ) : (
-                            <CalendarDays className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm">{entry.name}</div>
-                          <div className="text-[10px] opacity-60">
-                            {entry.date}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <div className="text-xs font-bold">
-                            {entry.score}%
-                          </div>
-                          <div
-                            className={`w-16 h-1.5 rounded-full bg-gray-200 mt-1`}
-                          >
-                            <div
-                              className={`h-full rounded-full ${
-                                entry.score === 100
-                                  ? "bg-green-500"
-                                  : "bg-indigo-500"
-                              }`}
-                              style={{ width: `${entry.score}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        <ChevronRight
-                          className={`w-4 h-4 transition-transform ${
-                            expandedHistoryId === entry.id ? "rotate-90" : ""
-                          }`}
-                        />
-                      </div>
-                    </div>
-                    {expandedHistoryId === entry.id && (
-                      <div className="mt-3 pt-3 border-t border-gray-200/20 text-xs opacity-80 pl-2 border-l-2 border-indigo-200 ml-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.keys(entry.data).map((day) => {
-                            const items = entry.data[day].plans[0].items || [];
-                            if (items.length === 0) return null;
-                            const done = items.filter(
-                              (i) => i.completed
-                            ).length;
-                            return (
-                              <div key={day}>
-                                <span className="font-bold">{day}:</span> {done}
-                                /{items.length} done
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* --- Add/Edit Modal (Existing) --- */}
       {activeModal.isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1925,7 +1832,7 @@ export default function WeeklyScheduler() {
                       handleModalSave();
                     }
                   }}
-                  placeholder="Type task..."
+                  placeholder="What needs to be done?"
                   rows={3}
                   className={`w-full text-lg px-4 py-3 rounded-xl border focus:ring-4 outline-none resize-none ${
                     isDarkMode
@@ -1935,7 +1842,8 @@ export default function WeeklyScheduler() {
                 />
                 {activeModal.mode === "add" && (
                   <p className="text-xs mt-1 text-gray-400">
-                    💡 Tip: Type multiple lines to add multiple tasks.
+                    💡 Tip: Paste a list or type multiple lines to add distinct
+                    tasks.
                   </p>
                 )}
               </div>
@@ -1984,7 +1892,7 @@ export default function WeeklyScheduler() {
                       onClick={handleModalSave}
                       className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg active:scale-95 flex justify-center gap-2"
                     >
-                      <Save className="w-4 h-4" /> Save
+                      <Save className="w-4 h-4" /> Save Changes
                     </button>
                     <div className="flex gap-2">
                       {activeModal.day !== "Monthly" && (
