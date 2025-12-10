@@ -271,7 +271,7 @@ export default function WeeklyScheduler() {
   const [viewMode, setViewMode] = useState("slide");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [wallpaper, setWallpaper] = useState("default");
-  const [isDataLoaded, setIsDataLoaded] = useState(false); // NEW: Lock to prevent data overwrites
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Multi-Tab Settings
   const [tabSettings, setTabSettings] = useState(() => {
@@ -328,6 +328,14 @@ export default function WeeklyScheduler() {
 
   const [schedule, setSchedule] = useState(initialSchedule);
   const [history, setHistory] = useState([]);
+
+  // --- NOTIFICATION STATE ---
+  const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: '' }
+
+  const showNotification = (type, message) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   // --- DATA LOADING & SYNC ---
   useEffect(() => {
@@ -759,30 +767,64 @@ export default function WeeklyScheduler() {
     a.remove();
     setOpenMenu(null);
   };
+
+  // --- ROBUST IMPORT HANDLER ---
   const handleImport = (e) => {
     const file = e.target.files[0];
     e.target.value = null;
     if (!file) return;
     const fileReader = new FileReader();
     fileReader.readAsText(file, "UTF-8");
-    fileReader.onload = (evt) => {
+    fileReader.onload = async (evt) => {
       try {
-        const data = JSON.parse(evt.target.result);
-        if (data.schedule && window.confirm("Overwrite data?")) {
-          setSchedule(data.schedule);
-          if (data.history) setHistory(data.history);
-          if (data.tabSettings) setTabSettings(data.tabSettings);
-          alert("Success! Schedule restored.");
-        } else if (data.Monday) {
-          if (window.confirm("Restore legacy backup?")) {
-            setSchedule(data);
-            alert("Success! Legacy schedule restored.");
+        const parsed = JSON.parse(evt.target.result);
+        let newSchedule = { ...initialSchedule }; // Start with defaults to be safe
+        let newHistory = [];
+        let newTabSettings = tabSettings;
+
+        let importSuccess = false;
+
+        if (parsed.schedule) {
+          // Standard backup format
+          newSchedule = { ...newSchedule, ...parsed.schedule }; // Merge to ensure all days exist
+          newHistory = parsed.history || [];
+          if (parsed.tabSettings) newTabSettings = parsed.tabSettings;
+          importSuccess = true;
+        } else if (parsed.Monday) {
+          // Legacy format
+          newSchedule = { ...newSchedule, ...parsed };
+          importSuccess = true;
+        }
+
+        if (importSuccess) {
+          // 1. Update State
+          setSchedule(newSchedule);
+          setHistory(newHistory);
+          setTabSettings(newTabSettings);
+
+          // 2. Direct Database Save (Crucial fix for "disappearing tasks")
+          if (user && db) {
+            const docRef = doc(db, "schedules", user.username);
+            // We use setDoc with merge:true to ensure we don't blow away other fields like 'createdAt'
+            await setDoc(
+              docRef,
+              {
+                schedule: newSchedule,
+                history: newHistory,
+                tabSettings: newTabSettings,
+                lastUpdated: new Date().toISOString(),
+              },
+              { merge: true }
+            );
           }
+
+          showNotification("success", "Success! Schedule restored.");
         } else {
-          alert("Error: Invalid Backup File Format");
+          showNotification("error", "Invalid file format.");
         }
       } catch (err) {
-        alert("Error reading file: " + err.message);
+        console.error(err);
+        showNotification("error", "Error reading file.");
       }
     };
     setOpenMenu(null);
@@ -1154,6 +1196,24 @@ export default function WeeklyScheduler() {
         if (showWallpapers) setShowWallpapers(false);
       }}
     >
+      {/* --- NOTIFICATION BUBBLE --- */}
+      {notification && (
+        <div
+          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-in slide-in-from-top-2 fade-in duration-300 font-bold ${
+            notification.type === "success"
+              ? "bg-green-500 text-white"
+              : "bg-red-500 text-white"
+          }`}
+        >
+          {notification.type === "success" ? (
+            <Check className="w-5 h-5" />
+          ) : (
+            <X className="w-5 h-5" />
+          )}
+          {notification.message}
+        </div>
+      )}
+
       {/* Header */}
       <div className="max-w-[1600px] mx-auto p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 bg-opacity-90 backdrop-blur-md">
         <div className="flex items-center gap-4 flex-grow">
@@ -1829,6 +1889,124 @@ export default function WeeklyScheduler() {
               >
                 Close Settings
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- History Modal --- */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${
+              isDarkMode ? "bg-slate-800" : "bg-white"
+            }`}
+          >
+            <div
+              className={`p-4 border-b flex justify-between items-center ${
+                isDarkMode
+                  ? "border-slate-700 bg-slate-800"
+                  : "border-gray-100 bg-gray-50/80"
+              }`}
+            >
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <History className="w-5 h-5 text-indigo-500" /> Past Success
+              </h3>
+              <button onClick={() => setShowHistory(false)}>
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-grow space-y-3">
+              {history.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 italic">
+                  No history yet.
+                </div>
+              ) : (
+                history.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className={`p-3 rounded-xl border ${
+                      isDarkMode
+                        ? "bg-slate-700 border-slate-600"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <div
+                      className="flex justify-between items-center cursor-pointer"
+                      onClick={() =>
+                        setExpandedHistoryId(
+                          expandedHistoryId === entry.id ? null : entry.id
+                        )
+                      }
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-lg ${
+                            entry.type === "week"
+                              ? "bg-indigo-100 text-indigo-600"
+                              : "bg-blue-100 text-blue-600"
+                          }`}
+                        >
+                          {entry.type === "week" ? (
+                            <RotateCcw className="w-4 h-4" />
+                          ) : (
+                            <CalendarDays className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm">{entry.name}</div>
+                          <div className="text-[10px] opacity-60">
+                            {entry.date}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <div className="text-xs font-bold">
+                            {entry.score}%
+                          </div>
+                          <div
+                            className={`w-16 h-1.5 rounded-full bg-gray-200 mt-1`}
+                          >
+                            <div
+                              className={`h-full rounded-full ${
+                                entry.score === 100
+                                  ? "bg-green-500"
+                                  : "bg-indigo-500"
+                              }`}
+                              style={{ width: `${entry.score}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        <ChevronRight
+                          className={`w-4 h-4 transition-transform ${
+                            expandedHistoryId === entry.id ? "rotate-90" : ""
+                          }`}
+                        />
+                      </div>
+                    </div>
+                    {expandedHistoryId === entry.id && (
+                      <div className="mt-3 pt-3 border-t border-gray-200/20 text-xs opacity-80 pl-2 border-l-2 border-indigo-200 ml-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.keys(entry.data).map((day) => {
+                            const items = entry.data[day].plans[0].items || [];
+                            if (items.length === 0) return null;
+                            const done = items.filter(
+                              (i) => i.completed
+                            ).length;
+                            return (
+                              <div key={day}>
+                                <span className="font-bold">{day}:</span> {done}
+                                /{items.length} done
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
