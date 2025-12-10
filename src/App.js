@@ -416,6 +416,14 @@ export default function WeeklyScheduler() {
       return;
     }
 
+    // Function to set user and complete login
+    const completeLogin = () => {
+      const userData = { username, pin };
+      setUser(userData);
+      localStorage.setItem("schedulerUser", JSON.stringify(userData));
+      setIsAuthLoading(false);
+    };
+
     // ONLINE CHECK
     if (db) {
       try {
@@ -423,16 +431,62 @@ export default function WeeklyScheduler() {
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
+          // Account exists
           if (docSnap.data().pin === pin) {
-            loginSuccess(username, pin);
+            completeLogin();
           } else {
             setAuthError("Incorrect PIN.");
           }
         } else {
-          if (window.confirm(`Create new online account for "${username}"?`)) {
-            // New user online
-            loginSuccess(username, pin);
-            // The useEffect will handle saving the initial data
+          // New Account - Check for old local data to migrate
+          const oldSchedule = localStorage.getItem("mySchedule");
+          const oldHistory = localStorage.getItem("myHistory");
+          const oldTabs = localStorage.getItem("tabSettings");
+          const hasOldData = oldSchedule && JSON.parse(oldSchedule).Monday;
+
+          const confirmMsg = hasOldData
+            ? `Create new account for "${username}" and IMPORT your existing tasks from this phone?`
+            : `Create new online account for "${username}"?`;
+
+          if (window.confirm(confirmMsg)) {
+            // MIGRATION LOGIC
+            const userData = { username, pin };
+
+            const scheduleToSave = hasOldData
+              ? JSON.parse(oldSchedule)
+              : initialSchedule;
+            const historyToSave = oldHistory ? JSON.parse(oldHistory) : [];
+            const tabsToSave = oldTabs
+              ? JSON.parse(oldTabs)
+              : [
+                  {
+                    id: 1,
+                    name: "Work",
+                    days: [
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                    ],
+                  },
+                ];
+
+            await setDoc(docRef, {
+              pin,
+              schedule: scheduleToSave,
+              history: historyToSave,
+              tabSettings: tabsToSave,
+              createdAt: new Date().toISOString(),
+              migratedFromLocal: hasOldData,
+            });
+
+            // Set local state to match what we just uploaded
+            setSchedule(scheduleToSave);
+            setHistory(historyToSave);
+            setTabSettings(tabsToSave);
+
+            completeLogin();
           }
         }
       } catch (err) {
@@ -441,31 +495,27 @@ export default function WeeklyScheduler() {
       }
     } else {
       // OFFLINE LOGIN
+      // ... (existing offline logic)
       const localData = localStorage.getItem(`data_${username}`);
       if (localData) {
         const parsed = JSON.parse(localData);
         if (parsed.pin === pin) {
-          loginSuccess(username, pin);
+          completeLogin();
         } else {
           setAuthError("Incorrect PIN for this offline user.");
         }
       } else {
-        if (
-          window.confirm(
-            `Create new OFFLINE account for "${username}"? (Data will only be saved on this device)`
-          )
-        ) {
-          loginSuccess(username, pin);
+        if (window.confirm(`Create new OFFLINE account for "${username}"?`)) {
+          // Basic migration for offline users too
+          const oldSchedule = localStorage.getItem("mySchedule");
+          if (oldSchedule) {
+            setSchedule(JSON.parse(oldSchedule));
+          }
+          completeLogin();
         }
       }
     }
     setIsAuthLoading(false);
-  };
-
-  const loginSuccess = (username, pin) => {
-    const userData = { username, pin };
-    setUser(userData);
-    localStorage.setItem("schedulerUser", JSON.stringify(userData));
   };
 
   const handleLogout = () => {
@@ -889,11 +939,6 @@ export default function WeeklyScheduler() {
                 </div>
               )}
             </div>
-            {!db && (
-              <p className="text-[10px] text-gray-400 text-center">
-                To enable sync, add Firebase keys to the code.
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -1405,7 +1450,6 @@ export default function WeeklyScheduler() {
                 <p className="text-xs opacity-60 mb-4">
                   Tabs to automatically create when you start a new week.
                 </p>
-
                 <div className="space-y-4">
                   {tabSettings.map((tab, idx) => (
                     <div
