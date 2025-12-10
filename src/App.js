@@ -665,12 +665,18 @@ export default function WeeklyScheduler() {
           viewMode === "slide" ? "snap-mandatory" : ""
         } px-4`
       : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4";
+
+  // UPDATED: Added h-[70vh] md:h-[80vh] to force height on desktop
   const cardClasses = (day) =>
     `flex flex-col rounded-2xl shadow-sm border transition-all duration-300 relative overflow-hidden ${
-      viewMode === "landscape" ? "min-w-[280px] w-[280px] snap-center" : ""
-    } ${viewMode === "slide" ? "min-w-full w-full snap-center" : ""} ${
-      viewMode === "grid" ? "w-full" : ""
+      viewMode === "landscape"
+        ? "min-w-[280px] w-[280px] snap-center h-[70vh] md:h-[80vh]"
+        : ""
     } ${
+      viewMode === "slide"
+        ? "min-w-full w-full snap-center h-[70vh] md:h-[80vh]"
+        : ""
+    } ${viewMode === "grid" ? "w-full" : ""} ${
       isDarkMode
         ? "bg-slate-800 border-slate-700"
         : "bg-white/90 backdrop-blur-sm border-white/50"
@@ -1036,7 +1042,7 @@ export default function WeeklyScheduler() {
               <div
                 className={`flex-grow overflow-y-auto ${
                   viewMode === "landscape" || viewMode === "slide"
-                    ? "p-3 max-h-[60vh] md:max-h-[75vh] lg:max-h-[80vh]"
+                    ? "p-3"
                     : "p-4 min-h-[150px]"
                 }`}
               >
