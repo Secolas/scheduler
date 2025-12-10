@@ -495,7 +495,6 @@ export default function WeeklyScheduler() {
       }
     } else {
       // OFFLINE LOGIN
-      // ... (existing offline logic)
       const localData = localStorage.getItem(`data_${username}`);
       if (localData) {
         const parsed = JSON.parse(localData);
@@ -506,7 +505,6 @@ export default function WeeklyScheduler() {
         }
       } else {
         if (window.confirm(`Create new OFFLINE account for "${username}"?`)) {
-          // Basic migration for offline users too
           const oldSchedule = localStorage.getItem("mySchedule");
           if (oldSchedule) {
             setSchedule(JSON.parse(oldSchedule));
@@ -665,7 +663,6 @@ export default function WeeklyScheduler() {
     });
   };
 
-  // ... (Move, Add, Edit, Delete, Plan Ops, Drag)
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -1021,8 +1018,9 @@ export default function WeeklyScheduler() {
           </div>
         </div>
 
-        <div className="flex gap-2 items-center">
-          <div className="relative">
+        {/* --- MOBILE-FRIENDLY SCROLLABLE TOOLBAR --- */}
+        <div className="flex gap-2 items-center overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scrollbar-hide">
+          <div className="relative shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1067,7 +1065,7 @@ export default function WeeklyScheduler() {
 
           <button
             onClick={() => setShowSettings(true)}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg shrink-0 transition-colors ${
               isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
             }`}
             title="Settings"
@@ -1076,7 +1074,7 @@ export default function WeeklyScheduler() {
           </button>
           <button
             onClick={() => setShowHistory(true)}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg shrink-0 transition-colors ${
               isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
             }`}
             title="View History"
@@ -1085,7 +1083,7 @@ export default function WeeklyScheduler() {
           </button>
           <button
             onClick={handleLogout}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg shrink-0 transition-colors ${
               isDarkMode
                 ? "bg-slate-700 text-red-400"
                 : "bg-white/80 text-red-500 shadow-sm"
@@ -1094,11 +1092,23 @@ export default function WeeklyScheduler() {
           >
             <LogOut className="w-5 h-5" />
           </button>
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={`p-2 rounded-lg shrink-0 transition-colors ${
+              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+            }`}
+          >
+            {isDarkMode ? (
+              <Sun className="w-5 h-5 text-yellow-400" />
+            ) : (
+              <Moon className="w-5 h-5 text-slate-600" />
+            )}
+          </button>
 
-          <div className="h-6 w-px bg-gray-300 mx-1 opacity-50"></div>
+          <div className="h-6 w-px bg-gray-300 mx-1 opacity-50 shrink-0"></div>
 
           <div
-            className={`flex p-1 rounded-lg ${
+            className={`flex p-1 rounded-lg shrink-0 ${
               isDarkMode ? "bg-slate-800" : "bg-white/80 shadow-sm"
             }`}
           >
@@ -1134,7 +1144,61 @@ export default function WeeklyScheduler() {
             </button>
           </div>
 
-          <div className="relative">
+          <div className="relative shrink-0">
+            {/* RESTORED: Backup/Data Menu */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenu(openMenu === "data" ? null : "data");
+              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
+                isDarkMode
+                  ? "bg-slate-700 hover:bg-slate-600"
+                  : "bg-white hover:bg-gray-100 shadow-sm"
+              }`}
+            >
+              <FileJson className="w-4 h-4" />
+              <span className="hidden sm:inline">Data</span>
+              <ChevronDown className="w-3 h-3 opacity-50" />
+            </button>
+            {openMenu === "data" && (
+              <div
+                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
+                  isDarkMode
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-gray-100"
+                }`}
+              >
+                <button
+                  onClick={handleExport}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <Download className="w-4 h-4" /> Download Backup
+                </button>
+                <label
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 cursor-pointer ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <Upload className="w-4 h-4" /> Import Backup{" "}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".json"
+                    onChange={handleImport}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div className="relative shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1146,8 +1210,9 @@ export default function WeeklyScheduler() {
                   : "bg-white/80 shadow-sm text-indigo-600"
               }`}
             >
-              <RefreshCw className="w-4 h-4" /> Reset{" "}
-              <ChevronDown className="w-3 h-3" />
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+              <ChevronDown className="w-3 h-3 opacity-50" />
             </button>
             {openMenu === "reset" && (
               <div
