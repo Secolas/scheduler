@@ -40,6 +40,8 @@ import {
   User,
   Cloud,
   CloudOff,
+  Menu,
+  Layers,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -92,7 +94,6 @@ export default function WeeklyScheduler() {
 
   // Multi-Tab Settings
   const [tabSettings, setTabSettings] = useState(() => {
-    // We try to load this early for initial render, but Sync will overwrite it
     const saved = localStorage.getItem("tabSettings");
     return saved
       ? JSON.parse(saved)
@@ -208,10 +209,8 @@ export default function WeeklyScheduler() {
       lastUpdated: new Date().toISOString(),
     };
 
-    // Always save to LocalStorage (Offline Backup)
     localStorage.setItem(`data_${user.username}`, JSON.stringify(dataToSave));
 
-    // Save to Firebase (if connected)
     if (db) {
       const saveData = setTimeout(async () => {
         try {
@@ -290,7 +289,10 @@ export default function WeeklyScheduler() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showWallpapers, setShowWallpapers] = useState(false);
+
+  // Settings Tab State
+  const [settingsTab, setSettingsTab] = useState("appearance"); // 'appearance' | 'data' | 'tabs' | 'account'
+
   const [openMenu, setOpenMenu] = useState(null);
   const [modalInput, setModalInput] = useState("");
   const [modalTime, setModalTime] = useState("");
@@ -663,6 +665,7 @@ export default function WeeklyScheduler() {
     });
   };
 
+  // ... (Move, Add, Edit, Delete, Plan Ops, Drag)
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -972,7 +975,6 @@ export default function WeeklyScheduler() {
       onClick={() => {
         if (editingPlan) savePlanEdit();
         if (openMenu) setOpenMenu(null);
-        if (showWallpapers) setShowWallpapers(false);
       }}
     >
       {/* Header */}
@@ -1021,89 +1023,17 @@ export default function WeeklyScheduler() {
         {/* --- MOBILE-FRIENDLY SCROLLABLE TOOLBAR --- */}
         <div className="flex gap-2 items-center overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scrollbar-hide">
           <div className="relative shrink-0">
+            {/* Unified Menu Button (The Gear) */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowWallpapers(!showWallpapers);
-              }}
-              className={`p-2 rounded-lg transition-colors ${
+              onClick={() => setShowSettings(true)}
+              className={`p-2 rounded-lg shrink-0 transition-colors ${
                 isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
               }`}
-              title="Wallpapers"
+              title="System Settings"
             >
-              <Palette className="w-5 h-5 text-pink-500" />
+              <Settings className="w-5 h-5 text-slate-500" />
             </button>
-            {showWallpapers && (
-              <div
-                className={`absolute right-0 mt-2 w-40 rounded-xl shadow-xl z-50 border overflow-hidden p-2 grid grid-cols-1 gap-1 ${
-                  isDarkMode
-                    ? "bg-slate-800 border-slate-700"
-                    : "bg-white border-gray-100"
-                }`}
-              >
-                {Object.keys(wallpapers).map((w) => (
-                  <button
-                    key={w}
-                    onClick={() => setWallpaper(w)}
-                    className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center capitalize"
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full border ${
-                        w === "default" ? "bg-gray-100" : ""
-                      } ${w === "nature" ? "bg-green-600" : ""} ${
-                        w === "ocean" ? "bg-blue-600" : ""
-                      } ${w === "sunset" ? "bg-orange-500" : ""} ${
-                        w === "fall" ? "bg-red-700" : ""
-                      }`}
-                    ></div>{" "}
-                    {w}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-
-          <button
-            onClick={() => setShowSettings(true)}
-            className={`p-2 rounded-lg shrink-0 transition-colors ${
-              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
-            }`}
-            title="Settings"
-          >
-            <Settings className="w-5 h-5 text-slate-500" />
-          </button>
-          <button
-            onClick={() => setShowHistory(true)}
-            className={`p-2 rounded-lg shrink-0 transition-colors ${
-              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
-            }`}
-            title="View History"
-          >
-            <ScrollText className="w-5 h-5 text-indigo-500" />
-          </button>
-          <button
-            onClick={handleLogout}
-            className={`p-2 rounded-lg shrink-0 transition-colors ${
-              isDarkMode
-                ? "bg-slate-700 text-red-400"
-                : "bg-white/80 text-red-500 shadow-sm"
-            }`}
-            title="Logout"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-2 rounded-lg shrink-0 transition-colors ${
-              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
-            }`}
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-yellow-400" />
-            ) : (
-              <Moon className="w-5 h-5 text-slate-600" />
-            )}
-          </button>
 
           <div className="h-6 w-px bg-gray-300 mx-1 opacity-50 shrink-0"></div>
 
@@ -1145,60 +1075,6 @@ export default function WeeklyScheduler() {
           </div>
 
           <div className="relative shrink-0">
-            {/* RESTORED: Backup/Data Menu */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenMenu(openMenu === "data" ? null : "data");
-              }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
-                isDarkMode
-                  ? "bg-slate-700 hover:bg-slate-600"
-                  : "bg-white hover:bg-gray-100 shadow-sm"
-              }`}
-            >
-              <FileJson className="w-4 h-4" />
-              <span className="hidden sm:inline">Data</span>
-              <ChevronDown className="w-3 h-3 opacity-50" />
-            </button>
-            {openMenu === "data" && (
-              <div
-                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
-                  isDarkMode
-                    ? "bg-slate-800 border-slate-700"
-                    : "bg-white border-gray-100"
-                }`}
-              >
-                <button
-                  onClick={handleExport}
-                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
-                    isDarkMode
-                      ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <Download className="w-4 h-4" /> Download Backup
-                </button>
-                <label
-                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 cursor-pointer ${
-                    isDarkMode
-                      ? "hover:bg-slate-700 text-slate-200"
-                      : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <Upload className="w-4 h-4" /> Import Backup{" "}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".json"
-                    onChange={handleImport}
-                  />
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div className="relative shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1212,7 +1088,6 @@ export default function WeeklyScheduler() {
             >
               <RefreshCw className="w-4 h-4" />
               <span className="hidden sm:inline">Reset</span>
-              <ChevronDown className="w-3 h-3 opacity-50" />
             </button>
             {openMenu === "reset" && (
               <div
@@ -1488,11 +1363,11 @@ export default function WeeklyScheduler() {
         })}
       </div>
 
-      {/* --- Settings Modal --- */}
+      {/* --- Unified System Settings Modal --- */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col ${
+            className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${
               isDarkMode ? "bg-slate-800 text-white" : "bg-white text-gray-900"
             }`}
           >
@@ -1502,80 +1377,288 @@ export default function WeeklyScheduler() {
               }`}
             >
               <h3 className="font-bold text-lg flex items-center gap-2">
-                <Settings className="w-5 h-5" /> Settings
+                <Settings className="w-5 h-5" /> System Settings
               </h3>
               <button onClick={() => setShowSettings(false)}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Tabs Header */}
+            <div
+              className={`flex border-b ${
+                isDarkMode
+                  ? "border-slate-700 bg-slate-900/50"
+                  : "border-gray-100 bg-gray-50"
+              }`}
+            >
+              {["appearance", "data", "tabs", "account"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSettingsTab(tab)}
+                  className={`flex-1 py-3 text-sm font-bold capitalize transition-colors ${
+                    settingsTab === tab
+                      ? isDarkMode
+                        ? "text-indigo-400 border-b-2 border-indigo-500"
+                        : "text-indigo-600 border-b-2 border-indigo-600 bg-white"
+                      : "text-gray-400 hover:text-gray-500"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
             <div className="p-6 overflow-y-auto">
-              <div className="mb-6">
-                <h4 className="font-bold mb-1">Auto-Create Tabs</h4>
-                <p className="text-xs opacity-60 mb-4">
-                  Tabs to automatically create when you start a new week.
-                </p>
-                <div className="space-y-4">
-                  {tabSettings.map((tab, idx) => (
-                    <div
-                      key={tab.id}
-                      className={`p-3 rounded-xl border ${
-                        isDarkMode
-                          ? "bg-slate-900 border-slate-700"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          value={tab.name}
-                          onChange={(e) =>
-                            updateTabSetting(tab.id, "name", e.target.value)
-                          }
-                          className={`flex-grow p-2 rounded text-sm font-bold border ${
-                            isDarkMode
-                              ? "bg-slate-800 border-slate-600"
-                              : "bg-white border-gray-300"
-                          }`}
-                          placeholder="Tab Name (e.g. Work)"
-                        />
+              {/* --- APPEARANCE TAB --- */}
+              {settingsTab === "appearance" && (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold mb-3 text-sm uppercase tracking-wider opacity-60">
+                      Theme Mode
+                    </h4>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setIsDarkMode(false)}
+                        className={`flex-1 py-3 rounded-xl border flex items-center justify-center gap-2 ${
+                          !isDarkMode
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            : "border-gray-200"
+                        }`}
+                      >
+                        <Sun className="w-5 h-5" /> Light
+                      </button>
+                      <button
+                        onClick={() => setIsDarkMode(true)}
+                        className={`flex-1 py-3 rounded-xl border flex items-center justify-center gap-2 ${
+                          isDarkMode
+                            ? "border-indigo-500 bg-indigo-900/30 text-indigo-300"
+                            : "border-gray-200"
+                        }`}
+                      >
+                        <Moon className="w-5 h-5" /> Dark
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold mb-3 text-sm uppercase tracking-wider opacity-60">
+                      Wallpaper
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.keys(wallpapers).map((w) => (
                         <button
-                          onClick={() => deleteTabSetting(tab.id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded"
+                          key={w}
+                          onClick={() => setWallpaper(w)}
+                          className={`px-4 py-3 text-sm text-left rounded-xl border flex gap-2 items-center capitalize transition-all ${
+                            wallpaper === w
+                              ? "border-indigo-500 ring-2 ring-indigo-200"
+                              : isDarkMode
+                              ? "border-slate-600 hover:bg-slate-700"
+                              : "border-gray-200 hover:bg-gray-50"
+                          }`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <div
+                            className={`w-4 h-4 rounded-full border ${
+                              w === "default" ? "bg-gray-100" : ""
+                            } ${w === "nature" ? "bg-green-600" : ""} ${
+                              w === "ocean" ? "bg-blue-600" : ""
+                            } ${w === "sunset" ? "bg-orange-500" : ""} ${
+                              w === "fall" ? "bg-red-700" : ""
+                            }`}
+                          ></div>{" "}
+                          {w}
                         </button>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {daysOrder
-                          .filter((d) => d !== "Monthly")
-                          .map((day) => (
-                            <button
-                              key={day}
-                              onClick={() => toggleTabDay(tab.id, day)}
-                              className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                                tab.days.includes(day)
-                                  ? "bg-indigo-500 text-white border-indigo-600"
-                                  : isDarkMode
-                                  ? "bg-slate-800 border-slate-600 hover:bg-slate-700"
-                                  : "bg-white border-gray-300 hover:bg-gray-100"
-                              }`}
-                            >
-                              {day.slice(0, 3)}
-                            </button>
-                          ))}
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- DATA TAB --- */}
+              {settingsTab === "data" && (
+                <div className="space-y-4">
+                  <button
+                    onClick={handleExport}
+                    className={`w-full py-4 px-4 rounded-xl border flex items-center gap-3 transition-all ${
+                      isDarkMode
+                        ? "border-slate-600 hover:bg-slate-700"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                      <Download className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold">Download Backup</div>
+                      <div className="text-xs opacity-60">
+                        Save your schedule to a JSON file
                       </div>
                     </div>
-                  ))}
+                  </button>
+
+                  <label
+                    className={`w-full py-4 px-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
+                      isDarkMode
+                        ? "border-slate-600 hover:bg-slate-700"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold">Import Data</div>
+                      <div className="text-xs opacity-60">
+                        Restore from a backup file
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".json"
+                      onChange={handleImport}
+                    />
+                  </label>
                 </div>
-                <button
-                  onClick={addTabSetting}
-                  className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-400 font-bold rounded-xl mt-3 hover:bg-gray-50 hover:text-gray-500 transition-colors"
-                >
-                  + Add Another Tab Rule
-                </button>
-              </div>
+              )}
+
+              {/* --- TABS TAB --- */}
+              {settingsTab === "tabs" && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h4 className="font-bold">Auto-Generated Tabs</h4>
+                      <p className="text-xs opacity-60">
+                        These tabs appear when you start a new week.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Placeholder for rearrange logic if implemented later
+                        // For now just visual hint
+                      }}
+                      className="text-xs flex items-center gap-1 text-indigo-500 font-bold"
+                    >
+                      <Layers className="w-3 h-3" /> Rearrange
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {tabSettings.map((tab, idx) => (
+                      <div
+                        key={tab.id}
+                        className={`p-3 rounded-xl border ${
+                          isDarkMode
+                            ? "bg-slate-900 border-slate-700"
+                            : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <div className="flex gap-2 mb-2">
+                          <input
+                            type="text"
+                            value={tab.name}
+                            onChange={(e) =>
+                              updateTabSetting(tab.id, "name", e.target.value)
+                            }
+                            className={`flex-grow p-2 rounded text-sm font-bold border ${
+                              isDarkMode
+                                ? "bg-slate-800 border-slate-600"
+                                : "bg-white border-gray-300"
+                            }`}
+                            placeholder="Tab Name (e.g. Work)"
+                          />
+                          <button
+                            onClick={() => deleteTabSetting(tab.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {daysOrder
+                            .filter((d) => d !== "Monthly")
+                            .map((day) => (
+                              <button
+                                key={day}
+                                onClick={() => toggleTabDay(tab.id, day)}
+                                className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                                  tab.days.includes(day)
+                                    ? "bg-indigo-500 text-white border-indigo-600"
+                                    : isDarkMode
+                                    ? "bg-slate-800 border-slate-600 hover:bg-slate-700"
+                                    : "bg-white border-gray-300 hover:bg-gray-100"
+                                }`}
+                              >
+                                {day.slice(0, 3)}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={addTabSetting}
+                    className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-400 font-bold rounded-xl mt-3 hover:bg-gray-50 hover:text-gray-500 transition-colors"
+                  >
+                    + Add Tab
+                  </button>
+                </div>
+              )}
+
+              {/* --- ACCOUNT TAB --- */}
+              {settingsTab === "account" && (
+                <div className="space-y-4">
+                  <div
+                    className={`p-4 rounded-xl border flex items-center justify-between ${
+                      isDarkMode
+                        ? "border-slate-700 bg-slate-900"
+                        : "border-gray-100 bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-100 text-indigo-700 rounded-full">
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold">{user.username}</div>
+                        <div className="text-xs opacity-60">Logged In</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-bold hover:bg-red-200"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShowSettings(false);
+                      setShowHistory(true);
+                    }}
+                    className={`w-full py-4 px-4 rounded-xl border flex items-center gap-3 transition-all ${
+                      isDarkMode
+                        ? "border-slate-600 hover:bg-slate-700"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                      <History className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold">View History</div>
+                      <div className="text-xs opacity-60">
+                        See past weeks and achievements
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 ml-auto opacity-30" />
+                  </button>
+                </div>
+              )}
             </div>
+
             <div
               className={`p-4 border-t ${
                 isDarkMode ? "border-slate-700" : "border-gray-100"
@@ -1585,7 +1668,7 @@ export default function WeeklyScheduler() {
                 onClick={() => setShowSettings(false)}
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
               >
-                Done
+                Close Settings
               </button>
             </div>
           </div>
@@ -1710,7 +1793,7 @@ export default function WeeklyScheduler() {
         </div>
       )}
 
-      {/* --- Add/Edit Modal --- */}
+      {/* --- Add/Edit Modal (Existing) --- */}
       {activeModal.isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
