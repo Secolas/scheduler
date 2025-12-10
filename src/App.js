@@ -35,36 +35,62 @@ import {
   Settings,
   Palette,
   Image as ImageIcon,
+  LogOut,
+  Lock,
+  User,
 } from "lucide-react";
 
+// --- FIREBASE IMPORTS ---
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously } from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  onSnapshot,
+  getDoc,
+} from "firebase/firestore";
+
+// --- FIREBASE CONFIGURATION ---
+const firebaseConfig =
+  typeof __firebase_config !== "undefined"
+    ? JSON.parse(__firebase_config)
+    : null;
+const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+
+let db = null;
+let auth = null;
+
+if (firebaseConfig) {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+}
+
 export default function WeeklyScheduler() {
-  // --- State Management ---
+  // --- Auth State ---
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("schedulerUser");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  const [authError, setAuthError] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // --- App State ---
   const [viewMode, setViewMode] = useState("slide");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [wallpaper, setWallpaper] = useState("default");
 
-  // MULTI-TAB Settings (Array of objects)
-  const [tabSettings, setTabSettings] = useState(() => {
-    const saved = localStorage.getItem("tabSettings");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Migration: Handle old single-object format if it exists
-      if (!Array.isArray(parsed) && parsed.name) {
-        return [{ id: Date.now(), name: parsed.name, days: parsed.days || [] }];
-      }
-      return Array.isArray(parsed) ? parsed : [];
-    }
-    // Default example if nothing saved
-    return [
-      {
-        id: 1,
-        name: "Work",
-        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      },
-    ];
-  });
+  // Custom Tab Settings
+  const [tabSettings, setTabSettings] = useState([
+    {
+      id: 1,
+      name: "Work",
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    },
+  ]);
 
-  // Initial Data Configuration
+  // Initial Empty State
   const initialSchedule = {
     Monday: {
       activePlanIndex: 0,
@@ -103,40 +129,95 @@ export default function WeeklyScheduler() {
     },
   };
 
-  const [schedule, setSchedule] = useState(() => {
-    const savedSchedule = localStorage.getItem("mySchedule");
-    return savedSchedule ? JSON.parse(savedSchedule) : initialSchedule;
-  });
+  const [schedule, setSchedule] = useState(initialSchedule);
+  const [history, setHistory] = useState([]);
 
-  const [history, setHistory] = useState(() => {
-    const savedHistory = localStorage.getItem("myHistory");
-    return savedHistory ? JSON.parse(savedHistory) : [];
-  });
-
-  // Load Preferences
+  // --- FIREBASE CONNECTION ---
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") setIsDarkMode(true);
-    const savedWallpaper = localStorage.getItem("wallpaper");
-    if (savedWallpaper) setWallpaper(savedWallpaper);
+    const initAuth = async () => {
+      if (auth && !auth.currentUser) {
+        if (
+          !(typeof __initial_auth_token !== "undefined" && __initial_auth_token)
+        ) {
+          await signInAnonymously(auth);
+        }
+      }
+    };
+    initAuth();
   }, []);
 
-  // Persist Data
+  // Sync: Listen for Cloud Updates
   useEffect(() => {
-    localStorage.setItem("mySchedule", JSON.stringify(schedule));
-  }, [schedule]);
+    if (!user || !db) return;
+
+    const docRef = doc(
+      db,
+      "artifacts",
+      appId,
+      "public",
+      "data",
+      "schedules",
+      user.username
+    );
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.pin === user.pin) {
+          if (data.schedule) setSchedule(data.schedule);
+          if (data.history) setHistory(data.history);
+          if (data.tabSettings) setTabSettings(data.tabSettings);
+          if (data.wallpaper) setWallpaper(data.wallpaper);
+          if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // Sync: Save Changes to Cloud (Debounced)
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    localStorage.setItem("myHistory", JSON.stringify(history));
-  }, [history]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!user || !db) return;
+
+    const saveData = setTimeout(async () => {
+      const docRef = doc(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "schedules",
+        user.username
+      );
+      await setDoc(
+        docRef,
+        {
+          pin: user.pin,
+          schedule,
+          history,
+          tabSettings,
+          wallpaper,
+          isDarkMode,
+          lastUpdated: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    }, 1000);
+
+    return () => clearTimeout(saveData);
+  }, [schedule, history, tabSettings, wallpaper, isDarkMode, user]);
+
+  // --- Local Preference Fallback (Theme only) ---
   useEffect(() => {
-    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
-  }, [isDarkMode]);
-  useEffect(() => {
-    localStorage.setItem("wallpaper", wallpaper);
-  }, [wallpaper]);
-  useEffect(() => {
-    localStorage.setItem("tabSettings", JSON.stringify(tabSettings));
-  }, [tabSettings]);
+    if (!user) {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark") setIsDarkMode(true);
+    }
+  }, [user]);
 
   // --- Statistics Logic ---
   const XP_PER_TASK = 50;
@@ -278,6 +359,7 @@ export default function WeeklyScheduler() {
 
   // --- Helper Functions ---
   useEffect(() => {
+    if (!user) return;
     const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
     setTimeout(() => {
       if (dayRefs.current[today]) {
@@ -288,7 +370,7 @@ export default function WeeklyScheduler() {
         });
       }
     }, 300);
-  }, [viewMode]);
+  }, [viewMode, user]);
 
   const getProgress = (items) => {
     if (!items || items.length === 0) return 0;
@@ -296,7 +378,6 @@ export default function WeeklyScheduler() {
     return Math.round((completed / items.length) * 100);
   };
 
-  // --- Archive Logic ---
   const saveToHistory = (type, name, data, score) => {
     const newEntry = {
       id: Date.now(),
@@ -309,16 +390,79 @@ export default function WeeklyScheduler() {
     setHistory((prev) => [newEntry, ...prev]);
   };
 
-  // --- Reset Logic with MULTI-TABS ---
+  // --- Auth Handlers ---
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsAuthLoading(true);
+    setAuthError("");
+    const form = e.target;
+    const username = form.username.value.trim().toLowerCase();
+    const pin = form.pin.value.trim();
+
+    if (!username || !pin) {
+      setAuthError("Please enter username and PIN.");
+      setIsAuthLoading(false);
+      return;
+    }
+
+    try {
+      const docRef = doc(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "schedules",
+        username
+      );
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        if (docSnap.data().pin === pin) {
+          const userData = { username, pin };
+          setUser(userData);
+          localStorage.setItem("schedulerUser", JSON.stringify(userData));
+        } else {
+          setAuthError("Incorrect PIN.");
+        }
+      } else {
+        if (window.confirm(`Create new account for "${username}"?`)) {
+          const userData = { username, pin };
+          await setDoc(docRef, {
+            pin,
+            schedule: initialSchedule,
+            history: [],
+            tabSettings: [
+              {
+                id: 1,
+                name: "Work",
+                days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+              },
+            ],
+            createdAt: new Date().toISOString(),
+          });
+          setUser(userData);
+          localStorage.setItem("schedulerUser", JSON.stringify(userData));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthError("Connection Error.");
+    }
+    setIsAuthLoading(false);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem("schedulerUser");
+    setSchedule(initialSchedule);
+  };
+
+  // --- ACTIONS: Reset / Clear ---
   const handleStartNewWeek = () => {
-    if (
-      !window.confirm(
-        "Start new WEEK? This saves history, resets items, and applies your Tab Settings."
-      )
-    )
+    if (!window.confirm("Start new WEEK? Saves history & resets tasks."))
       return;
 
-    // Archive
     const weeklySnapshot = {};
     daysOrder.forEach((d) => {
       if (d !== "Monthly") weeklySnapshot[d] = schedule[d];
@@ -330,21 +474,16 @@ export default function WeeklyScheduler() {
       weeklyStats.totalProgress || 0
     );
 
-    // Reset & Rebuild
     setSchedule((prev) => {
       const newSchedule = {};
-
       daysOrder.forEach((dayKey) => {
         if (dayKey === "Monthly") {
           newSchedule[dayKey] = prev[dayKey];
           return;
         }
 
-        // 1. Always create Main plan
         const plans = [{ id: `p_${dayKey}_main`, name: "Main", items: [] }];
-
-        // 2. Loop through User Settings and add custom tabs
-        tabSettings.forEach((setting, index) => {
+        tabSettings.forEach((setting) => {
           if (setting.days.includes(dayKey)) {
             plans.push({
               id: `p_${dayKey}_custom_${setting.id}`,
@@ -353,13 +492,8 @@ export default function WeeklyScheduler() {
             });
           }
         });
-
-        newSchedule[dayKey] = {
-          activePlanIndex: 0,
-          plans: plans,
-        };
+        newSchedule[dayKey] = { activePlanIndex: 0, plans: plans };
       });
-
       newSchedule["Monthly"] = prev["Monthly"];
       return newSchedule;
     });
@@ -389,7 +523,7 @@ export default function WeeklyScheduler() {
   };
 
   const handleClearAll = () => {
-    if (!window.confirm("Delete ALL tasks?")) return;
+    if (!window.confirm("Delete ALL data?")) return;
     setSchedule(initialSchedule);
     setOpenMenu(null);
   };
@@ -412,7 +546,7 @@ export default function WeeklyScheduler() {
     fileReader.onload = (evt) => {
       try {
         const data = JSON.parse(evt.target.result);
-        if (data.schedule && window.confirm("Overwrite current data?")) {
+        if (data.schedule && window.confirm("Overwrite data?")) {
           setSchedule(data.schedule);
           if (data.history) setHistory(data.history);
           if (data.tabSettings) setTabSettings(data.tabSettings);
@@ -424,20 +558,18 @@ export default function WeeklyScheduler() {
     setOpenMenu(null);
   };
 
-  // --- Tab Settings Handlers ---
+  // --- Tabs Settings ---
   const addTabSetting = () => {
     setTabSettings([
       ...tabSettings,
       { id: Date.now(), name: "New Tab", days: [] },
     ]);
   };
-
   const updateTabSetting = (id, field, value) => {
     setTabSettings(
       tabSettings.map((t) => (t.id === id ? { ...t, [field]: value } : t))
     );
   };
-
   const toggleTabDay = (id, day) => {
     setTabSettings(
       tabSettings.map((t) => {
@@ -449,12 +581,11 @@ export default function WeeklyScheduler() {
       })
     );
   };
-
   const deleteTabSetting = (id) => {
     setTabSettings(tabSettings.filter((t) => t.id !== id));
   };
 
-  // --- Core Task Logic ---
+  // --- Task Logic ---
   const toggleCompletion = (day, planIndex, itemId) => {
     setSchedule((prev) => {
       const dayData = prev[day];
@@ -468,6 +599,7 @@ export default function WeeklyScheduler() {
     });
   };
 
+  // ... (Move, Add, Edit, Delete, Plan Ops, Drag - Standard logic, updated to use 'schedule' state)
   const moveTaskToNextDay = () => {
     if (!activeModal.item || !activeModal.day) return;
     const currentDayIndex = daysOrder.indexOf(activeModal.day);
@@ -616,7 +748,7 @@ export default function WeeklyScheduler() {
     }
   };
 
-  // Drag logic omitted for brevity
+  // Drag logic
   const handleDragStart = (e, item, day, planIndex, itemIndex) => {
     dragItem.current = { item, day, planIndex, itemIndex };
     dragNode.current = e.target;
@@ -658,15 +790,86 @@ export default function WeeklyScheduler() {
   };
   const handleDragEnd = () => setIsDragging(false);
 
-  // --- Render ---
+  // --- Render (LOGIN SCREEN) ---
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center p-4 font-sans">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-300">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center p-4 bg-indigo-100 rounded-full text-indigo-600 mb-4 shadow-inner">
+              <Calendar className="w-10 h-10" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              Weekly Scheduler
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Sync your life across all devices
+            </p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Username
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <input
+                  name="username"
+                  type="text"
+                  placeholder="Enter a unique username"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                PIN Code
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <input
+                  name="pin"
+                  type="password"
+                  placeholder="4-digit PIN to protect data"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+                />
+              </div>
+            </div>
+            {authError && (
+              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center font-medium border border-red-100">
+                {authError}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={isAuthLoading}
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isAuthLoading ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                "Login / Create Account"
+              )}
+            </button>
+          </form>
+          {!firebaseConfig && (
+            <div className="mt-6 p-4 bg-yellow-50 text-yellow-800 text-xs rounded-xl border border-yellow-100">
+              <strong>⚠️ Setup Required:</strong> To use this online, you'll
+              need to provide your Firebase Configuration keys in the code.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- Render (MAIN APP) ---
   const containerClasses =
     viewMode === "landscape" || viewMode === "slide"
       ? `flex flex-row gap-4 overflow-x-auto pb-8 snap-x ${
           viewMode === "slide" ? "snap-mandatory" : ""
         } px-4`
       : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4";
-
-  // UPDATED: Added h-[70vh] md:h-[80vh] to force height on desktop
   const cardClasses = (day) =>
     `flex flex-col rounded-2xl shadow-sm border transition-all duration-300 relative overflow-hidden ${
       viewMode === "landscape"
@@ -710,11 +913,18 @@ export default function WeeklyScheduler() {
               <span
                 className={`text-xs font-bold uppercase tracking-widest ${baseTextColor}`}
               >
-                Week Level {weeklyStats.level}
+                Level {weeklyStats.level}
               </span>
-              <span className={`text-[10px] font-medium ${mutedTextColor}`}>
-                {weeklyStats.currentXP} XP
-              </span>
+              <div className="flex gap-2 items-center">
+                <span className={`text-[10px] font-medium ${mutedTextColor}`}>
+                  {weeklyStats.currentXP} XP
+                </span>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold uppercase`}
+                >
+                  {user.username}
+                </span>
+              </div>
             </div>
             <div
               className={`h-2.5 w-full rounded-full overflow-hidden ${
@@ -751,39 +961,24 @@ export default function WeeklyScheduler() {
                     : "bg-white border-gray-100"
                 }`}
               >
-                <button
-                  onClick={() => setWallpaper("default")}
-                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
-                >
-                  <div className="w-4 h-4 rounded-full border bg-gray-100"></div>{" "}
-                  Default
-                </button>
-                <button
-                  onClick={() => setWallpaper("nature")}
-                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
-                >
-                  <div className="w-4 h-4 rounded-full bg-green-600"></div>{" "}
-                  Nature
-                </button>
-                <button
-                  onClick={() => setWallpaper("ocean")}
-                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
-                >
-                  <div className="w-4 h-4 rounded-full bg-blue-600"></div> Ocean
-                </button>
-                <button
-                  onClick={() => setWallpaper("sunset")}
-                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
-                >
-                  <div className="w-4 h-4 rounded-full bg-orange-500"></div>{" "}
-                  Sunset
-                </button>
-                <button
-                  onClick={() => setWallpaper("fall")}
-                  className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center"
-                >
-                  <div className="w-4 h-4 rounded-full bg-red-700"></div> Fall
-                </button>
+                {Object.keys(wallpapers).map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setWallpaper(w)}
+                    className="px-2 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-slate-700 flex gap-2 items-center capitalize"
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full border ${
+                        w === "default" ? "bg-gray-100" : ""
+                      } ${w === "nature" ? "bg-green-600" : ""} ${
+                        w === "ocean" ? "bg-blue-600" : ""
+                      } ${w === "sunset" ? "bg-orange-500" : ""} ${
+                        w === "fall" ? "bg-red-700" : ""
+                      }`}
+                    ></div>{" "}
+                    {w}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -797,7 +992,6 @@ export default function WeeklyScheduler() {
           >
             <Settings className="w-5 h-5 text-slate-500" />
           </button>
-
           <button
             onClick={() => setShowHistory(true)}
             className={`p-2 rounded-lg transition-colors ${
@@ -808,17 +1002,18 @@ export default function WeeklyScheduler() {
             <ScrollText className="w-5 h-5 text-indigo-500" />
           </button>
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
+            onClick={handleLogout}
             className={`p-2 rounded-lg transition-colors ${
-              isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+              isDarkMode
+                ? "bg-slate-700 text-red-400"
+                : "bg-white/80 text-red-500 shadow-sm"
             }`}
+            title="Logout"
           >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-yellow-400" />
-            ) : (
-              <Moon className="w-5 h-5 text-slate-600" />
-            )}
+            <LogOut className="w-5 h-5" />
           </button>
+
+          <div className="h-6 w-px bg-gray-300 mx-1 opacity-50"></div>
 
           <div
             className={`flex p-1 rounded-lg ${
@@ -917,7 +1112,7 @@ export default function WeeklyScheduler() {
         </div>
       </div>
 
-      {/* --- Main Content --- */}
+      {/* --- Main Grid --- */}
       <div className={`max-w-[1600px] mx-auto ${containerClasses}`}>
         {daysOrder.map((day) => {
           const dayData = schedule[day];
@@ -1166,14 +1361,12 @@ export default function WeeklyScheduler() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-
             <div className="p-6 overflow-y-auto">
               <div className="mb-6">
                 <h4 className="font-bold mb-1">Auto-Create Tabs</h4>
                 <p className="text-xs opacity-60 mb-4">
                   Tabs to automatically create when you start a new week.
                 </p>
-
                 <div className="space-y-4">
                   {tabSettings.map((tab, idx) => (
                     <div
