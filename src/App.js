@@ -289,9 +289,7 @@ export default function WeeklyScheduler() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-
-  // Settings Tab State
-  const [settingsTab, setSettingsTab] = useState("appearance"); // 'appearance' | 'data' | 'tabs' | 'account'
+  const [settingsTab, setSettingsTab] = useState("appearance");
 
   const [openMenu, setOpenMenu] = useState(null);
   const [modalInput, setModalInput] = useState("");
@@ -418,7 +416,6 @@ export default function WeeklyScheduler() {
       return;
     }
 
-    // Function to set user and complete login
     const completeLogin = () => {
       const userData = { username, pin };
       setUser(userData);
@@ -426,21 +423,19 @@ export default function WeeklyScheduler() {
       setIsAuthLoading(false);
     };
 
-    // ONLINE CHECK
     if (db) {
       try {
         const docRef = doc(db, "schedules", username);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          // Account exists
           if (docSnap.data().pin === pin) {
             completeLogin();
           } else {
             setAuthError("Incorrect PIN.");
           }
         } else {
-          // New Account - Check for old local data to migrate
+          // Check for old local data to migrate
           const oldSchedule = localStorage.getItem("mySchedule");
           const oldHistory = localStorage.getItem("myHistory");
           const oldTabs = localStorage.getItem("tabSettings");
@@ -451,7 +446,6 @@ export default function WeeklyScheduler() {
             : `Create new online account for "${username}"?`;
 
           if (window.confirm(confirmMsg)) {
-            // MIGRATION LOGIC
             const userData = { username, pin };
 
             const scheduleToSave = hasOldData
@@ -483,7 +477,6 @@ export default function WeeklyScheduler() {
               migratedFromLocal: hasOldData,
             });
 
-            // Set local state to match what we just uploaded
             setSchedule(scheduleToSave);
             setHistory(historyToSave);
             setTabSettings(tabsToSave);
@@ -496,7 +489,6 @@ export default function WeeklyScheduler() {
         setAuthError("Connection Error. Ensure Database Rules are Open.");
       }
     } else {
-      // OFFLINE LOGIN
       const localData = localStorage.getItem(`data_${username}`);
       if (localData) {
         const parsed = JSON.parse(localData);
@@ -607,8 +599,14 @@ export default function WeeklyScheduler() {
     setOpenMenu(null);
   };
   const handleImport = (e) => {
+    // Reset value to allow re-uploading same file
+    const file = e.target.files[0];
+    e.target.value = null;
+
+    if (!file) return;
+
     const fileReader = new FileReader();
-    fileReader.readAsText(e.target.files[0], "UTF-8");
+    fileReader.readAsText(file, "UTF-8");
     fileReader.onload = (evt) => {
       try {
         const data = JSON.parse(evt.target.result);
@@ -618,7 +616,7 @@ export default function WeeklyScheduler() {
           if (data.tabSettings) setTabSettings(data.tabSettings);
         }
       } catch (err) {
-        alert("Error");
+        alert("Error reading file");
       }
     };
     setOpenMenu(null);
@@ -975,6 +973,7 @@ export default function WeeklyScheduler() {
       onClick={() => {
         if (editingPlan) savePlanEdit();
         if (openMenu) setOpenMenu(null);
+        if (showWallpapers) setShowWallpapers(false);
       }}
     >
       {/* Header */}
@@ -1020,8 +1019,8 @@ export default function WeeklyScheduler() {
           </div>
         </div>
 
-        {/* --- MOBILE-FRIENDLY SCROLLABLE TOOLBAR --- */}
-        <div className="flex gap-2 items-center overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scrollbar-hide">
+        {/* --- MOBILE-FRIENDLY SCROLLABLE TOOLBAR (Fixed Wrapping) --- */}
+        <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
           <div className="relative shrink-0">
             {/* Unified Menu Button (The Gear) */}
             <button
@@ -1128,6 +1127,57 @@ export default function WeeklyScheduler() {
                 >
                   <Eraser className="w-4 h-4" /> Clear All
                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* Added: Direct Data Menu Access for Restore */}
+          <div className="relative shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenu(openMenu === "data" ? null : "data");
+              }}
+              className={`p-2 rounded-lg shrink-0 transition-colors ${
+                isDarkMode ? "bg-slate-700" : "bg-white/80 shadow-sm"
+              }`}
+              title="Data Import/Export"
+            >
+              <FileJson className="w-5 h-5 text-indigo-500" />
+            </button>
+            {openMenu === "data" && (
+              <div
+                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 border overflow-hidden ${
+                  isDarkMode
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-gray-100"
+                }`}
+              >
+                <button
+                  onClick={handleExport}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <Download className="w-4 h-4" /> Download Backup
+                </button>
+                <label
+                  className={`w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-opacity-50 cursor-pointer ${
+                    isDarkMode
+                      ? "hover:bg-slate-700 text-slate-200"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <Upload className="w-4 h-4" /> Import Backup{" "}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".json"
+                    onChange={handleImport}
+                  />
+                </label>
               </div>
             )}
           </div>
