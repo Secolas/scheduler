@@ -271,6 +271,7 @@ export default function WeeklyScheduler() {
   const [viewMode, setViewMode] = useState("slide");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [wallpaper, setWallpaper] = useState("default");
+  const [isDataLoaded, setIsDataLoaded] = useState(false); // NEW: Lock to prevent data overwrites
 
   // Multi-Tab Settings
   const [tabSettings, setTabSettings] = useState(() => {
@@ -331,7 +332,10 @@ export default function WeeklyScheduler() {
   // --- DATA LOADING & SYNC ---
   useEffect(() => {
     if (!user) return;
+    setIsDataLoaded(false); // Reset load state on user change
+
     if (!db) {
+      // Fallback to local storage if DB fails
       const localData = localStorage.getItem(`data_${user.username}`);
       if (localData) {
         const parsed = JSON.parse(localData);
@@ -343,12 +347,15 @@ export default function WeeklyScheduler() {
           if (parsed.isDarkMode !== undefined) setIsDarkMode(parsed.isDarkMode);
         }
       }
+      setIsDataLoaded(true); // Enable saving
       return;
     }
+
     const initAuth = async () => {
       if (auth && !auth.currentUser) await signInAnonymously(auth);
     };
     initAuth();
+
     const docRef = doc(db, "schedules", user.username);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -361,6 +368,7 @@ export default function WeeklyScheduler() {
           if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
         }
       }
+      setIsDataLoaded(true); // CRITICAL: Only allow saving after this fires
     });
     return () => unsubscribe();
   }, [user]);
@@ -372,7 +380,8 @@ export default function WeeklyScheduler() {
       isFirstRender.current = false;
       return;
     }
-    if (!user) return;
+    if (!user || !isDataLoaded) return; // CRITICAL FIX: Do not save if data hasn't loaded yet
+
     const dataToSave = {
       pin: user.pin,
       schedule,
@@ -382,7 +391,10 @@ export default function WeeklyScheduler() {
       isDarkMode,
       lastUpdated: new Date().toISOString(),
     };
+
+    // Save to Local Storage as Backup
     localStorage.setItem(`data_${user.username}`, JSON.stringify(dataToSave));
+
     if (db) {
       const saveData = setTimeout(async () => {
         try {
@@ -394,7 +406,15 @@ export default function WeeklyScheduler() {
       }, 1000);
       return () => clearTimeout(saveData);
     }
-  }, [schedule, history, tabSettings, wallpaper, isDarkMode, user]);
+  }, [
+    schedule,
+    history,
+    tabSettings,
+    wallpaper,
+    isDarkMode,
+    user,
+    isDataLoaded,
+  ]);
 
   useEffect(() => {
     if (!user) {
@@ -596,9 +616,9 @@ export default function WeeklyScheduler() {
             setAuthError("Incorrect PIN");
           }
         } else {
-          // Auto Create
-          const userData = { username, pin };
-          await setDoc(docRef, {
+          // Auto Create - MIGRATION FIX: Check LocalStorage first before creating empty!
+          const localData = localStorage.getItem(`data_${username}`);
+          let initialData = {
             pin,
             schedule: initialSchedule,
             history: [],
@@ -611,16 +631,30 @@ export default function WeeklyScheduler() {
             ],
             createdAt: new Date().toISOString(),
             migratedFromLocal: false,
-          });
-          setSchedule(initialSchedule);
-          setHistory([]);
-          setTabSettings([
-            {
-              id: 1,
-              name: "Work",
-              days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-            },
-          ]);
+          };
+
+          if (localData) {
+            try {
+              const parsed = JSON.parse(localData);
+              if (parsed.pin === pin) {
+                initialData = {
+                  ...initialData,
+                  ...parsed,
+                  migratedFromLocal: true,
+                };
+              }
+            } catch (e) {
+              console.warn("Failed to migrate local data", e);
+            }
+          }
+
+          const userData = { username, pin };
+          await setDoc(docRef, initialData);
+
+          // Set state immediately from the data we just created/migrated
+          setSchedule(initialData.schedule);
+          setHistory(initialData.history);
+          setTabSettings(initialData.tabSettings);
           completeLogin();
         }
       } catch (err) {
