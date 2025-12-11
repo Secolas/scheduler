@@ -42,6 +42,7 @@ import {
   ArrowRightCircle,
   Eye,
   EyeOff,
+  UserPlus,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -257,6 +258,7 @@ export default function WeeklyScheduler() {
   });
   const [authError, setAuthError] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // 'login' or 'signup'
 
   // Login Animation State
   const [eyePosition, setEyePosition] = useState(50);
@@ -593,7 +595,7 @@ export default function WeeklyScheduler() {
   };
 
   // --- Auth Handlers ---
-  const handleLogin = async (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
     setIsAuthLoading(true);
     setAuthError("");
@@ -606,6 +608,7 @@ export default function WeeklyScheduler() {
       setIsAuthLoading(false);
       return;
     }
+
     const completeLogin = () => {
       const userData = { username, pin };
       setUser(userData);
@@ -617,70 +620,95 @@ export default function WeeklyScheduler() {
       try {
         const docRef = doc(db, "schedules", username);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          if (docSnap.data().pin === pin) {
-            completeLogin();
+
+        if (authMode === "login") {
+          // --- LOGIN MODE ---
+          if (docSnap.exists()) {
+            if (docSnap.data().pin === pin) {
+              completeLogin();
+            } else {
+              setAuthError("Incorrect PIN");
+            }
           } else {
-            setAuthError("Incorrect PIN");
+            setAuthError("User not found. Please create an account.");
           }
         } else {
-          // Auto Create - MIGRATION FIX: Check LocalStorage first before creating empty!
-          const localData = localStorage.getItem(`data_${username}`);
-          let initialData = {
-            pin,
-            schedule: initialSchedule,
-            history: [],
-            tabSettings: [
-              {
-                id: 1,
-                name: "Work",
-                days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            migratedFromLocal: false,
-          };
+          // --- SIGN UP MODE ---
+          if (docSnap.exists()) {
+            setAuthError("Username taken. Please login.");
+          } else {
+            // Auto Create
+            const localData = localStorage.getItem(`data_${username}`);
+            let initialData = {
+              pin,
+              schedule: initialSchedule,
+              history: [],
+              tabSettings: [
+                {
+                  id: 1,
+                  name: "Work",
+                  days: [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                  ],
+                },
+              ],
+              createdAt: new Date().toISOString(),
+              migratedFromLocal: false,
+            };
 
-          if (localData) {
-            try {
-              const parsed = JSON.parse(localData);
-              if (parsed.pin === pin) {
-                initialData = {
-                  ...initialData,
-                  ...parsed,
-                  migratedFromLocal: true,
-                };
+            if (localData) {
+              try {
+                const parsed = JSON.parse(localData);
+                if (parsed.pin === pin) {
+                  initialData = {
+                    ...initialData,
+                    ...parsed,
+                    migratedFromLocal: true,
+                  };
+                }
+              } catch (e) {
+                console.warn("Failed to migrate local data", e);
               }
-            } catch (e) {
-              console.warn("Failed to migrate local data", e);
             }
+
+            await setDoc(docRef, initialData);
+
+            // Set state immediately from the data we just created/migrated
+            setSchedule(initialData.schedule);
+            setHistory(initialData.history);
+            setTabSettings(initialData.tabSettings);
+            completeLogin();
           }
-
-          const userData = { username, pin };
-          await setDoc(docRef, initialData);
-
-          // Set state immediately from the data we just created/migrated
-          setSchedule(initialData.schedule);
-          setHistory(initialData.history);
-          setTabSettings(initialData.tabSettings);
-          completeLogin();
         }
       } catch (err) {
         console.error(err);
         setAuthError("Connection Error");
       }
     } else {
+      // Local Storage Fallback
       const localData = localStorage.getItem(`data_${username}`);
-      if (localData) {
-        const parsed = JSON.parse(localData);
-        if (parsed.pin === pin) {
-          completeLogin();
+      if (authMode === "login") {
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          if (parsed.pin === pin) {
+            completeLogin();
+          } else {
+            setAuthError("Incorrect PIN");
+          }
         } else {
-          setAuthError("Incorrect PIN");
+          setAuthError("User not found locally.");
         }
       } else {
-        setSchedule(initialSchedule);
-        completeLogin();
+        if (localData) {
+          setAuthError("User already exists.");
+        } else {
+          setSchedule(initialSchedule);
+          completeLogin();
+        }
       }
     }
     setIsAuthLoading(false);
@@ -1077,6 +1105,9 @@ export default function WeeklyScheduler() {
             <h1 className="text-3xl font-extrabold text-indigo-600 tracking-tight">
               Shiba Schedule
             </h1>
+            <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-2">
+              {authMode === "login" ? "Welcome Back!" : "Create New Account"}
+            </p>
           </div>
 
           <ShibaAvatar
@@ -1085,7 +1116,7 @@ export default function WeeklyScheduler() {
             isPeeking={showPin}
           />
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             {/* Username Input - Eyes Watch */}
             <div className="relative group">
               <User className="absolute left-4 top-4 w-5 h-5 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -1152,12 +1183,26 @@ export default function WeeklyScheduler() {
                 <RefreshCw className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Login{" "}
+                  {authMode === "login" ? "Login" : "Create Account"}
                   <ArrowRightCircle className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" />
                 </>
               )}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setAuthMode(authMode === "login" ? "signup" : "login");
+                setAuthError("");
+              }}
+              className="text-indigo-600 text-sm font-bold hover:underline transition-all"
+            >
+              {authMode === "login"
+                ? "Don't have an account? Create one"
+                : "Already have an account? Login"}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1889,124 +1934,6 @@ export default function WeeklyScheduler() {
               >
                 Close Settings
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- History Modal --- */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div
-            className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${
-              isDarkMode ? "bg-slate-800" : "bg-white"
-            }`}
-          >
-            <div
-              className={`p-4 border-b flex justify-between items-center ${
-                isDarkMode
-                  ? "border-slate-700 bg-slate-800"
-                  : "border-gray-100 bg-gray-50/80"
-              }`}
-            >
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <History className="w-5 h-5 text-indigo-500" /> Past Success
-              </h3>
-              <button onClick={() => setShowHistory(false)}>
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto flex-grow space-y-3">
-              {history.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 italic">
-                  No history yet.
-                </div>
-              ) : (
-                history.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className={`p-3 rounded-xl border ${
-                      isDarkMode
-                        ? "bg-slate-700 border-slate-600"
-                        : "bg-gray-50 border-gray-200"
-                    }`}
-                  >
-                    <div
-                      className="flex justify-between items-center cursor-pointer"
-                      onClick={() =>
-                        setExpandedHistoryId(
-                          expandedHistoryId === entry.id ? null : entry.id
-                        )
-                      }
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            entry.type === "week"
-                              ? "bg-indigo-100 text-indigo-600"
-                              : "bg-blue-100 text-blue-600"
-                          }`}
-                        >
-                          {entry.type === "week" ? (
-                            <RotateCcw className="w-4 h-4" />
-                          ) : (
-                            <CalendarDays className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm">{entry.name}</div>
-                          <div className="text-[10px] opacity-60">
-                            {entry.date}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <div className="text-xs font-bold">
-                            {entry.score}%
-                          </div>
-                          <div
-                            className={`w-16 h-1.5 rounded-full bg-gray-200 mt-1`}
-                          >
-                            <div
-                              className={`h-full rounded-full ${
-                                entry.score === 100
-                                  ? "bg-green-500"
-                                  : "bg-indigo-500"
-                              }`}
-                              style={{ width: `${entry.score}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        <ChevronRight
-                          className={`w-4 h-4 transition-transform ${
-                            expandedHistoryId === entry.id ? "rotate-90" : ""
-                          }`}
-                        />
-                      </div>
-                    </div>
-                    {expandedHistoryId === entry.id && (
-                      <div className="mt-3 pt-3 border-t border-gray-200/20 text-xs opacity-80 pl-2 border-l-2 border-indigo-200 ml-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.keys(entry.data).map((day) => {
-                            const items = entry.data[day].plans[0].items || [];
-                            if (items.length === 0) return null;
-                            const done = items.filter(
-                              (i) => i.completed
-                            ).length;
-                            return (
-                              <div key={day}>
-                                <span className="font-bold">{day}:</span> {done}
-                                /{items.length} done
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
             </div>
           </div>
         </div>
