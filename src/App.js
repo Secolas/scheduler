@@ -1008,6 +1008,7 @@ export default function WeeklyScheduler() {
   const closeModal = () => {
     setActiveModal({ isOpen: false, mode: "add", day: null, item: null });
   };
+
   const handleModalSave = () => {
     if (!modalInput.trim() || !activeModal.day) return;
     const { day, mode, item } = activeModal;
@@ -1017,6 +1018,7 @@ export default function WeeklyScheduler() {
       const updatedPlans = [...dayData.plans];
       let newItems = [...activePlan.items];
       const commonData = { time: modalTime, color: modalColor };
+
       if (mode === "add") {
         if (modalInput.includes("\n")) {
           modalInput.split("\n").forEach((line, index) => {
@@ -1041,6 +1043,15 @@ export default function WeeklyScheduler() {
           i.id === item.id ? { ...i, text: modalInput, ...commonData } : i
         );
       }
+
+      // Sort items: items with time first (sorted ascending), then items without time
+      newItems.sort((a, b) => {
+        if (a.time && !b.time) return -1;
+        if (!a.time && b.time) return 1;
+        if (a.time && b.time) return a.time.localeCompare(b.time);
+        return 0;
+      });
+
       updatedPlans[dayData.activePlanIndex] = {
         ...activePlan,
         items: newItems,
@@ -1049,6 +1060,7 @@ export default function WeeklyScheduler() {
     });
     closeModal();
   };
+
   const handleModalDelete = () => {
     const { day, item } = activeModal;
     setSchedule((prev) => {
