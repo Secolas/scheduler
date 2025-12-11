@@ -85,6 +85,7 @@ const ShibaAvatar = ({
   isHiding = false,
   isPeeking = false,
   isBarking = false,
+  isSad = false,
   size = "large",
   className = "mx-auto mb-6",
 }) => {
@@ -154,8 +155,39 @@ const ShibaAvatar = ({
         />
 
         {/* Eyebrows */}
-        <ellipse cx="40" cy="55" rx="4" ry="2" fill="#FFFDF5" opacity="0.8" />
-        <ellipse cx="80" cy="55" rx="4" ry="2" fill="#FFFDF5" opacity="0.8" />
+        <g
+          className="transition-transform duration-300"
+          style={{ transformOrigin: "center" }}
+        >
+          <ellipse
+            cx="40"
+            cy="55"
+            rx="4"
+            ry="2"
+            fill="#FFFDF5"
+            opacity="0.8"
+            style={{
+              transform: isSad
+                ? "rotate(-20deg) translate(0, 5px)"
+                : "rotate(0deg)",
+              transformOrigin: "40px 55px",
+            }}
+          />
+          <ellipse
+            cx="80"
+            cy="55"
+            rx="4"
+            ry="2"
+            fill="#FFFDF5"
+            opacity="0.8"
+            style={{
+              transform: isSad
+                ? "rotate(20deg) translate(0, 5px)"
+                : "rotate(0deg)",
+              transformOrigin: "80px 55px",
+            }}
+          />
+        </g>
 
         {/* --- EYES (Animated) --- */}
         <g
@@ -171,19 +203,46 @@ const ShibaAvatar = ({
           <circle cx="80" cy="63" r="2" fill="white" />
         </g>
 
-        {/* Snout */}
+        {/* Snout/Mouth */}
         <ellipse cx="60" cy="82" rx="7" ry="5" fill="#3E2723" />
-        <path
-          d="M60 82 L60 92 M60 92 Q52 98 48 88 M60 92 Q68 98 72 88"
-          fill="none"
-          stroke="#3E2723"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+
+        {/* Animated Mouth State */}
+        {isSad ? (
+          // Sad Frown
+          <path
+            d="M50 92 Q60 88 70 92"
+            fill="none"
+            stroke="#3E2723"
+            strokeWidth="2"
+            strokeLinecap="round"
+            className="animate-in fade-in duration-300"
+          />
+        ) : (
+          // Happy 'w' Mouth
+          <path
+            d="M60 82 L60 92 M60 92 Q52 98 48 88 M60 92 Q68 98 72 88"
+            fill="none"
+            stroke="#3E2723"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        )}
 
         {/* Cheeks (Blush) */}
         <circle cx="28" cy="85" r="5" fill="#FFAB91" opacity="0.5" />
         <circle cx="92" cy="85" r="5" fill="#FFAB91" opacity="0.5" />
+
+        {/* Sad Tear */}
+        {isSad && (
+          <path
+            d="M40 70 Q40 80 35 80 Q30 80 30 70 L35 60 Z"
+            fill="#4FC3F7"
+            stroke="#039BE5"
+            strokeWidth="0.5"
+            className="animate-pulse origin-top"
+            style={{ transform: "translateY(5px)" }}
+          />
+        )}
 
         {/* --- ANIMATED PAWS --- */}
         {/* Left Paw */}
@@ -614,6 +673,10 @@ export default function WeeklyScheduler() {
       setUser(userData);
       localStorage.setItem("schedulerUser", JSON.stringify(userData));
       setIsAuthLoading(false);
+
+      // Trigger Bark on successful login/signup
+      setIsBarking(true);
+      setTimeout(() => setIsBarking(false), 3000);
     };
 
     if (db) {
@@ -1114,6 +1177,7 @@ export default function WeeklyScheduler() {
             eyePosition={eyePosition}
             isHiding={isHiding}
             isPeeking={showPin}
+            isSad={!!authError}
           />
 
           <form onSubmit={handleAuth} className="space-y-4">
