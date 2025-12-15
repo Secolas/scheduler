@@ -47,9 +47,13 @@ import {
   ListRestart,
   Repeat,
   BookOpen,
-  List, // Added for Minimal View
+  List,
   Square,
   CheckSquare,
+  Timer,
+  Play,
+  Pause,
+  StopCircle,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -120,6 +124,14 @@ const SHIBA_PHRASES = {
     "Oh no! It's gone!",
     "*sad puppy eyes*",
   ],
+  focus: [
+    "Study time! 📚",
+    "Scribble scribble...",
+    "I'm learning!",
+    "Just reading a bit...",
+    "Knowledge is treats for the brain.",
+    "So focused right now.",
+  ],
 };
 
 const getRandomPhrase = (type) => {
@@ -133,11 +145,11 @@ const ShibaAvatar = ({
   isHiding = false,
   isPeeking = false,
   isSad = false,
-  action = "idle", // Options: 'idle', 'bark', 'dig', 'perk', 'sad'
+  action = "idle", // Options: 'idle', 'bark', 'dig', 'perk', 'sad', 'focus'
   message = null,
   size = "large",
   className = "mx-auto mb-6",
-  level = 1, // NEW: Level prop to determine accessories
+  level = 1,
 }) => {
   // Map eye position (0-100) to movement range (-8px to +8px)
   const eyeOffset = (eyePosition / 100) * 16 - 8;
@@ -149,9 +161,13 @@ const ShibaAvatar = ({
   const isBarking = action === "bark";
   const isDigging = action === "dig";
   const isPerking = action === "perk";
+  const isFocusing = action === "focus";
 
   // Accessory Logic
-  const hasSunglasses = level >= 2;
+  // Sunglasses (Level 2+) - HIDDEN if focusing (uses nerd glasses instead)
+  const hasSunglasses = level >= 2 && !isFocusing;
+  // Nerd Glasses (Focus Mode Only)
+  const hasNerdGlasses = isFocusing;
   const hasBandana = level >= 5;
   const hasCrown = level >= 10;
 
@@ -169,7 +185,7 @@ const ShibaAvatar = ({
         </div>
       )}
 
-      {/* Barking Bubble - Now on the RIGHT side */}
+      {/* Barking Bubble */}
       {isBarking && !message && (
         <div className="absolute top-2 -right-24 bg-white border-2 border-indigo-100 text-indigo-600 font-bold px-3 py-1.5 rounded-xl rounded-bl-none shadow-md animate-bounce z-20 whitespace-nowrap text-sm flex items-center gap-1">
           Woof! <span className="text-lg">🦴</span>
@@ -217,7 +233,44 @@ const ShibaAvatar = ({
           </g>
         )}
 
-        {/* --- HEAD GROUP --- */}
+        {/* --- BOOK/PAPER (Layered BEFORE Paws and Head to be underneath paws) --- */}
+        {isFocusing && (
+          <g className="animate-in slide-in-from-bottom-5 fade-in duration-500">
+            {/* Paper Body - Rotated slightly */}
+            <rect
+              x="25"
+              y="110"
+              width="70"
+              height="20"
+              fill="#FFF"
+              stroke="#CCC"
+              strokeWidth="1"
+              rx="1"
+              transform="rotate(-5 60 120)"
+            />
+            {/* Lines */}
+            <line
+              x1="30"
+              y1="118"
+              x2="80"
+              y2="118"
+              stroke="#EEE"
+              strokeWidth="1"
+              transform="rotate(-5 60 120)"
+            />
+            <line
+              x1="30"
+              y1="122"
+              x2="80"
+              y2="122"
+              stroke="#EEE"
+              strokeWidth="1"
+              transform="rotate(-5 60 120)"
+            />
+          </g>
+        )}
+
+        {/* --- HEAD --- */}
         <g className="transition-transform duration-300">
           {/* Ears */}
           <path
@@ -228,7 +281,9 @@ const ShibaAvatar = ({
             strokeLinejoin="round"
             className={`transition-transform duration-300 origin-bottom-right ${
               isPerking ? "rotate-[-10deg] translate-y-[-5px]" : ""
-            } ${isSad ? "rotate-[10deg] translate-y-[5px]" : ""}`}
+            } ${isSad ? "rotate-[10deg] translate-y-[5px]" : ""} ${
+              isFocusing ? "translate-y-[2px]" : ""
+            }`}
           />
           <path
             d="M100 45 L110 15 Q90 20 75 35"
@@ -238,7 +293,9 @@ const ShibaAvatar = ({
             strokeLinejoin="round"
             className={`transition-transform duration-300 origin-bottom-left ${
               isPerking ? "rotate-[10deg] translate-y-[-5px]" : ""
-            } ${isSad ? "rotate-[-10deg] translate-y-[5px]" : ""}`}
+            } ${isSad ? "rotate-[-10deg] translate-y-[5px]" : ""} ${
+              isFocusing ? "translate-y-[2px]" : ""
+            }`}
           />
 
           {/* Face Base */}
@@ -257,7 +314,7 @@ const ShibaAvatar = ({
             fill="#FFFDF5"
           />
 
-          {/* ACCESSORY: Bandana (Level 5+) */}
+          {/* ACCESSORY: Bandana */}
           {hasBandana && (
             <path
               d="M30 95 Q60 120 90 95 L80 90 Q60 105 40 90 Z"
@@ -284,6 +341,8 @@ const ShibaAvatar = ({
               style={{
                 transform: isSad
                   ? "rotate(-20deg) translate(0, 5px)"
+                  : isFocusing
+                  ? "rotate(10deg) translate(0, 2px)"
                   : "rotate(0deg)",
                 transformOrigin: "40px 55px",
               }}
@@ -298,6 +357,8 @@ const ShibaAvatar = ({
               style={{
                 transform: isSad
                   ? "rotate(20deg) translate(0, 5px)"
+                  : isFocusing
+                  ? "rotate(-10deg) translate(0, 2px)"
                   : "rotate(0deg)",
                 transformOrigin: "80px 55px",
               }}
@@ -315,10 +376,9 @@ const ShibaAvatar = ({
             <circle cx="80" cy="63" r="2" fill="white" />
           </g>
 
-          {/* ACCESSORY: Sunglasses (Level 2+) */}
+          {/* ACCESSORY: Sunglasses */}
           {hasSunglasses && !isSad && !isHiding && (
             <g className="animate-in slide-in-from-top-4 fade-in duration-500">
-              {/* Lenses */}
               <path
                 d="M30 60 H54 V68 Q54 74 42 74 Q30 74 30 68 Z"
                 fill="#111827"
@@ -331,7 +391,6 @@ const ShibaAvatar = ({
                 stroke="#000"
                 strokeWidth="1"
               />
-              {/* Bridge */}
               <line
                 x1="54"
                 y1="62"
@@ -339,6 +398,36 @@ const ShibaAvatar = ({
                 y2="62"
                 stroke="#000"
                 strokeWidth="2"
+              />
+            </g>
+          )}
+
+          {/* ACCESSORY: Nerd Glasses (Focus Mode) */}
+          {hasNerdGlasses && (
+            <g className="animate-in fade-in duration-500">
+              <circle
+                cx="42"
+                cy="65"
+                r="11"
+                fill="rgba(255,255,255,0.4)"
+                stroke="#333"
+                strokeWidth="1.5"
+              />
+              <circle
+                cx="78"
+                cy="65"
+                r="11"
+                fill="rgba(255,255,255,0.4)"
+                stroke="#333"
+                strokeWidth="1.5"
+              />
+              <line
+                x1="53"
+                y1="65"
+                x2="67"
+                y2="65"
+                stroke="#333"
+                strokeWidth="1.5"
               />
             </g>
           )}
@@ -354,6 +443,13 @@ const ShibaAvatar = ({
               strokeWidth="2"
               strokeLinecap="round"
               className="animate-in fade-in duration-300"
+            />
+          ) : isFocusing ? (
+            <path
+              d="M55 90 H65"
+              stroke="#3E2723"
+              strokeWidth="2"
+              strokeLinecap="round"
             />
           ) : (
             <path
@@ -381,7 +477,7 @@ const ShibaAvatar = ({
             />
           )}
 
-          {/* ACCESSORY: Crown (Level 10+) */}
+          {/* ACCESSORY: Crown */}
           {hasCrown && (
             <path
               d="M40 30 L40 10 L50 20 L60 5 L70 20 L80 10 L80 30 Z"
@@ -396,7 +492,7 @@ const ShibaAvatar = ({
         </g>
 
         {/* --- ANIMATED PAWS --- */}
-        {/* Left Paw */}
+        {/* Left Paw (Holding paper down) */}
         <g
           className={`transition-all duration-300 cubic-bezier(0.34, 1.56, 0.64, 1) ${
             isBarking ? "animate-bounce" : ""
@@ -408,6 +504,8 @@ const ShibaAvatar = ({
               ? "translate(0, 15px)"
               : isSad
               ? "translate(0, 40px)"
+              : isFocusing
+              ? "translate(5px, 25px)" // Hand on paper
               : isBarking || isPerking
               ? `translate(0, ${jumpOffset}px)`
               : "translate(0, 10px)",
@@ -429,11 +527,11 @@ const ShibaAvatar = ({
           />
         </g>
 
-        {/* Right Paw */}
+        {/* Right Paw (Writing with Pencil) */}
         <g
           className={`transition-all duration-300 cubic-bezier(0.34, 1.56, 0.64, 1) ${
             isBarking ? "animate-bounce" : ""
-          }`}
+          } ${isFocusing ? "animate-pulse" : ""}`}
           style={{
             transform: isHiding
               ? isPeeking
@@ -443,9 +541,12 @@ const ShibaAvatar = ({
               ? "translate(0, 5px)"
               : isSad
               ? "translate(0, 40px)"
+              : isFocusing
+              ? "translate(-5px, 20px)" // Writing position
               : isBarking || isPerking
               ? `translate(0, ${jumpOffset}px)`
               : "translate(0, 10px)",
+            animationDuration: isFocusing ? "0.3s" : undefined,
           }}
         >
           <circle
@@ -462,6 +563,36 @@ const ShibaAvatar = ({
             strokeWidth="2"
             strokeLinecap="round"
           />
+
+          {/* PENCIL (Corrected: Eraser Top Right, Tip Bottom Left) */}
+          {isFocusing && (
+            <g transform="translate(85, 100) rotate(45)">
+              {/* Body (Yellow) */}
+              <rect
+                x="-3"
+                y="-15"
+                width="6"
+                height="25"
+                fill="#FCD34D"
+                stroke="#D97706"
+                strokeWidth="1"
+              />
+              {/* Tip (Black/Wood) */}
+              <path d="M-3 10 L3 10 L0 16 Z" fill="#333" />
+              {/* Eraser (Pink) */}
+              <rect
+                x="-3"
+                y="-19"
+                width="6"
+                height="4"
+                fill="#F87171"
+                stroke="#B91C1C"
+                strokeWidth="1"
+              />
+              {/* Metal Band */}
+              <rect x="-3" y="-15" width="6" height="2" fill="#9CA3AF" />
+            </g>
+          )}
         </g>
       </svg>
     </div>
@@ -497,10 +628,13 @@ export default function WeeklyScheduler() {
       setShibaMessage(getRandomPhrase(messageType));
     }
 
-    reactionTimeout.current = setTimeout(() => {
-      setShibaAction("idle");
-      setShibaMessage(null);
-    }, 3000);
+    // Don't auto-clear focus state, it's controlled by the timer
+    if (actionType !== "focus") {
+      reactionTimeout.current = setTimeout(() => {
+        setShibaAction("idle");
+        setShibaMessage(null);
+      }, 3000);
+    }
   };
 
   // --- App State ---
@@ -511,6 +645,19 @@ export default function WeeklyScheduler() {
 
   // --- SYNC STATE ---
   const isRemoteUpdate = useRef(false);
+
+  // --- FOCUS MODE STATE ---
+  const [focusSetup, setFocusSetup] = useState({
+    isOpen: false,
+    task: null,
+    duration: 25,
+  }); // NEW: Setup modal
+  const [focusSession, setFocusSession] = useState({
+    active: false,
+    task: null,
+    timeLeft: 0,
+    isPaused: true,
+  });
 
   // Multi-Tab Settings
   const [tabSettings, setTabSettings] = useState(() => {
@@ -571,6 +718,63 @@ export default function WeeklyScheduler() {
   const showNotification = (type, message) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  // --- FOCUS TIMER EFFECT ---
+  useEffect(() => {
+    let interval = null;
+    if (
+      focusSession.active &&
+      !focusSession.isPaused &&
+      focusSession.timeLeft > 0
+    ) {
+      interval = setInterval(() => {
+        setFocusSession((prev) => ({
+          ...prev,
+          timeLeft: prev.timeLeft - 1,
+        }));
+      }, 1000);
+    } else if (focusSession.timeLeft === 0 && focusSession.active) {
+      // Session Complete
+      setFocusSession((prev) => ({ ...prev, active: false }));
+      triggerShibaReaction("bark", "complete");
+      showNotification("success", "Focus Session Complete! Great job!");
+    }
+
+    return () => clearInterval(interval);
+  }, [focusSession.active, focusSession.isPaused, focusSession.timeLeft]);
+
+  // Format time for display (MM:SS)
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const initiateFocusSession = (task) => {
+    setFocusSetup({ isOpen: true, task: task, duration: 25 }); // Default 25 min
+    closeModal(); // Close Edit Modal
+  };
+
+  const startFocusTimer = () => {
+    setFocusSession({
+      active: true,
+      task: focusSetup.task,
+      timeLeft: focusSetup.duration * 60,
+      isPaused: false,
+    });
+    setFocusSetup({ isOpen: false, task: null, duration: 25 }); // Close setup
+    triggerShibaReaction("focus", "focus");
+  };
+
+  const endFocusSession = () => {
+    setFocusSession((prev) => ({ ...prev, active: false }));
+    setShibaAction("idle"); // Reset Shiba
+    setShibaMessage(null);
+  };
+
+  const toggleFocusPause = () => {
+    setFocusSession((prev) => ({ ...prev, isPaused: !prev.isPaused }));
   };
 
   // --- DATA LOADING & SYNC ---
@@ -1608,6 +1812,130 @@ export default function WeeklyScheduler() {
         </div>
       )}
 
+      {/* --- FOCUS MODE OVERLAY --- */}
+      {focusSession.active && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[100] flex flex-col items-center justify-center text-white p-6">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold mb-2">Focus Session</h2>
+            <p className="text-xl opacity-80">{focusSession.task.text}</p>
+          </div>
+
+          {/* SHIBA IN FOCUS MODE */}
+          <ShibaAvatar
+            eyePosition={50}
+            action="focus"
+            message={null}
+            size="large"
+            level={weeklyStats.level}
+            className="mb-16 scale-150"
+          />
+
+          {/* TIMER DISPLAY */}
+          <div className="text-8xl font-mono font-bold mb-12 tracking-wider">
+            {formatTime(focusSession.timeLeft)}
+          </div>
+
+          {/* CONTROLS */}
+          <div className="flex gap-6">
+            {focusSession.isPaused ? (
+              <button
+                onClick={toggleFocusPause}
+                className="p-6 bg-green-600 rounded-full hover:bg-green-500 transition-all active:scale-95 shadow-lg"
+              >
+                <Play className="w-12 h-12 fill-white" />
+              </button>
+            ) : (
+              <button
+                onClick={toggleFocusPause}
+                className="p-6 bg-yellow-600 rounded-full hover:bg-yellow-500 transition-all active:scale-95 shadow-lg"
+              >
+                <Pause className="w-12 h-12 fill-white" />
+              </button>
+            )}
+
+            <button
+              onClick={endFocusSession}
+              className="p-6 bg-red-600 rounded-full hover:bg-red-500 transition-all active:scale-95 shadow-lg"
+            >
+              <StopCircle className="w-12 h-12" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- FOCUS SETUP MODAL --- */}
+      {focusSetup.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 ${
+              isDarkMode ? "bg-slate-800 text-white" : "bg-white text-gray-900"
+            } animate-in zoom-in-95`}
+          >
+            <h3 className="text-xl font-bold mb-2">Start Focus Session</h3>
+            <p
+              className={`text-sm mb-6 ${
+                isDarkMode ? "text-slate-400" : "text-gray-500"
+              }`}
+            >
+              How long do you want to focus?
+            </p>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 border rounded-xl p-2 bg-opacity-50 bg-gray-50 dark:bg-slate-900 dark:border-slate-700">
+                <Clock className="w-5 h-5 text-indigo-500" />
+                <input
+                  type="number"
+                  value={focusSetup.duration}
+                  onChange={(e) =>
+                    setFocusSetup({
+                      ...focusSetup,
+                      duration: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  className="bg-transparent outline-none w-full font-bold text-lg text-center"
+                />
+                <span className="text-sm font-bold opacity-50 pr-2">min</span>
+              </div>
+
+              <div className="flex justify-between gap-2">
+                {[15, 25, 45, 60].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() =>
+                      setFocusSetup({ ...focusSetup, duration: mins })
+                    }
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                      focusSetup.duration === mins
+                        ? "bg-indigo-100 border-indigo-500 text-indigo-700"
+                        : "border-gray-200 hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={startFocusTimer}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg active:scale-95 flex justify-center gap-2"
+              >
+                <Play className="w-5 h-5" /> Start Timer
+              </button>
+              <button
+                onClick={() => setFocusSetup({ ...focusSetup, isOpen: false })}
+                className={`w-full py-3 font-bold rounded-xl ${
+                  isDarkMode
+                    ? "text-slate-400 hover:bg-slate-700"
+                    : "text-gray-400 hover:bg-gray-100"
+                }`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {actionModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
@@ -2177,7 +2505,10 @@ export default function WeeklyScheduler() {
                 }`}
               >
                 <button
-                  onClick={() => openAddModal(day)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAddModal(day);
+                  }}
                   className={`w-full flex items-center justify-center gap-2 font-medium rounded-xl text-sm active:scale-95 transition-all ${
                     viewMode === "minimal"
                       ? "py-1.5 text-xs border border-dashed text-gray-400 hover:text-gray-600 border-gray-300"
@@ -2764,6 +3095,12 @@ export default function WeeklyScheduler() {
               <div className="flex flex-col gap-2 mt-2">
                 {activeModal.mode === "edit" ? (
                   <>
+                    <button
+                      onClick={() => initiateFocusSession(activeModal.item)}
+                      className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg active:scale-95 flex justify-center gap-2 hover:bg-blue-500"
+                    >
+                      <Timer className="w-4 h-4" /> Start Focus
+                    </button>
                     <button
                       onClick={handleModalSave}
                       className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg active:scale-95 flex justify-center gap-2"
