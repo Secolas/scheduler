@@ -46,6 +46,7 @@ import {
   UserPlus,
   ListRestart,
   Repeat,
+  BookOpen, // Added for Help Tab
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -979,10 +980,17 @@ export default function WeeklyScheduler() {
   };
 
   const handleClearAll = () => {
-    if (!window.confirm("Delete ALL data?")) return;
-    setSchedule(initialSchedule);
+    // Replaced window.confirm with modal
     setOpenMenu(null);
+    setActionModal("clear");
   };
+
+  const performClearAll = () => {
+    setSchedule(initialSchedule);
+    setActionModal(null);
+    showNotification("success", "All data cleared.");
+  };
+
   const handleExport = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
@@ -2053,7 +2061,7 @@ export default function WeeklyScheduler() {
                   : "border-gray-100 bg-gray-50"
               }`}
             >
-              {["appearance", "data", "tabs", "account"].map((tab) => (
+              {["appearance", "data", "tabs", "account", "help"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setSettingsTab(tab)}
@@ -2311,6 +2319,117 @@ export default function WeeklyScheduler() {
                     </div>
                     <ChevronRight className="w-5 h-5 ml-auto opacity-30" />
                   </button>
+                </div>
+              )}
+              {settingsTab === "help" && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="inline-flex p-3 bg-indigo-100 text-indigo-600 rounded-full mb-2">
+                      <BookOpen className="w-8 h-8" />
+                    </div>
+                    <h3 className="font-bold text-xl">
+                      How to use Shiba Schedule
+                    </h3>
+                    <p className="text-sm opacity-60">
+                      Master your productivity!
+                    </p>
+                  </div>
+
+                  <div
+                    className={`p-4 rounded-xl border ${
+                      isDarkMode
+                        ? "bg-slate-900 border-slate-700"
+                        : "bg-gray-50 border-gray-100"
+                    }`}
+                  >
+                    <h4 className="font-bold flex items-center gap-2 mb-2">
+                      <PlusCircle className="w-4 h-4 text-indigo-500" /> Adding
+                      Tasks
+                    </h4>
+                    <p className="text-sm opacity-80 mb-2">
+                      Click <b>"Add Task"</b> at the bottom of any day. You can
+                      paste a list of items to add multiple at once!
+                    </p>
+                    <div className="text-xs p-2 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200">
+                      <b>Tip:</b> Toggle "Repeat Task" to make it appear on
+                      multiple selected days automatically.
+                    </div>
+                  </div>
+
+                  <div
+                    className={`p-4 rounded-xl border ${
+                      isDarkMode
+                        ? "bg-slate-900 border-slate-700"
+                        : "bg-gray-50 border-gray-100"
+                    }`}
+                  >
+                    <h4 className="font-bold flex items-center gap-2 mb-2">
+                      <GripVertical className="w-4 h-4 text-indigo-500" />{" "}
+                      Organizing
+                    </h4>
+                    <ul className="text-sm opacity-80 list-disc pl-4 space-y-1">
+                      <li>
+                        <b>Drag & Drop:</b> Grab the handle icon (⋮⋮) to move
+                        tasks between days or reorder them.
+                      </li>
+                      <li>
+                        <b>Swipe:</b> On mobile, touch and hold the handle to
+                        drag.
+                      </li>
+                      <li>
+                        <b>Edit:</b> Tap any task to change text, time, or
+                        color.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div
+                    className={`p-4 rounded-xl border ${
+                      isDarkMode
+                        ? "bg-slate-900 border-slate-700"
+                        : "bg-gray-50 border-gray-100"
+                    }`}
+                  >
+                    <h4 className="font-bold flex items-center gap-2 mb-2">
+                      <Layers className="w-4 h-4 text-indigo-500" /> Custom Tabs
+                      & Templates
+                    </h4>
+                    <p className="text-sm opacity-80">
+                      Go to <b>Settings &gt; Tabs</b>. Create custom tabs (like
+                      "Groceries" or "Gym"). Add a <b>Template List</b> there to
+                      have those items auto-appear whenever you start a new week
+                      or month!
+                    </p>
+                  </div>
+
+                  <div
+                    className={`p-4 rounded-xl border ${
+                      isDarkMode
+                        ? "bg-slate-900 border-slate-700"
+                        : "bg-gray-50 border-gray-100"
+                    }`}
+                  >
+                    <h4 className="font-bold flex items-center gap-2 mb-2">
+                      <Trophy className="w-4 h-4 text-indigo-500" /> The Shiba
+                    </h4>
+                    <p className="text-sm opacity-80">
+                      Your productivity companion! He reacts to your actions:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs font-medium text-center">
+                      <div className="p-2 bg-green-100 text-green-700 rounded-lg">
+                        Completing Tasks = Happy Bark
+                      </div>
+                      <div className="p-2 bg-red-100 text-red-700 rounded-lg">
+                        Deleting Tasks = Sad Whimper
+                      </div>
+                      <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
+                        Adding Tasks = Digging
+                      </div>
+                      <div className="p-2 bg-orange-100 text-orange-700 rounded-lg">
+                        Login = Welcoming
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
