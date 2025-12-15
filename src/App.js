@@ -46,7 +46,10 @@ import {
   UserPlus,
   ListRestart,
   Repeat,
-  BookOpen, // Added for Help Tab
+  BookOpen,
+  List, // Added for Minimal View
+  Square,
+  CheckSquare,
 } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
@@ -980,9 +983,9 @@ export default function WeeklyScheduler() {
   };
 
   const handleClearAll = () => {
-    // Replaced window.confirm with modal
+    if (!window.confirm("Delete ALL data?")) return;
+    setSchedule(initialSchedule);
     setOpenMenu(null);
-    setActionModal("clear");
   };
 
   const performClearAll = () => {
@@ -1485,30 +1488,43 @@ export default function WeeklyScheduler() {
 
   // --- Render (MAIN APP) ---
   const containerClasses =
-    viewMode === "landscape" || viewMode === "slide"
+    viewMode === "minimal"
+      ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 px-2"
+      : viewMode === "landscape" || viewMode === "slide"
       ? `flex flex-row gap-4 overflow-x-auto pb-8 snap-x ${
           viewMode === "slide" ? "snap-mandatory" : ""
         } px-4`
       : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4";
+
   const cardClasses = (day) =>
-    `flex flex-col rounded-2xl shadow-sm border transition-all duration-300 relative overflow-hidden ${
-      viewMode === "landscape"
-        ? "min-w-[280px] w-[280px] snap-center h-[70vh] md:h-[80vh]"
-        : ""
-    } ${
-      viewMode === "slide"
-        ? "min-w-full w-full snap-center h-[70vh] md:h-[80vh]"
-        : ""
-    } ${viewMode === "grid" ? "w-full" : ""} ${
-      isDarkMode
-        ? "bg-slate-800 border-slate-700"
-        : "bg-white/90 backdrop-blur-sm border-white/50"
-    }`;
+    viewMode === "minimal"
+      ? `flex flex-col border p-2 min-h-[150px] ${
+          isDarkMode
+            ? "bg-slate-900 border-slate-700"
+            : "bg-white border-gray-300"
+        }`
+      : `flex flex-col rounded-2xl shadow-sm border transition-all duration-300 relative overflow-hidden ${
+          viewMode === "landscape"
+            ? "min-w-[280px] w-[280px] snap-center h-[70vh] md:h-[80vh]"
+            : ""
+        } ${
+          viewMode === "slide"
+            ? "min-w-full w-full snap-center h-[70vh] md:h-[80vh]"
+            : ""
+        } ${viewMode === "grid" ? "w-full" : ""} ${
+          isDarkMode
+            ? "bg-slate-800 border-slate-700"
+            : "bg-white/90 backdrop-blur-sm border-white/50"
+        }`;
 
   return (
     <div
       className={`min-h-screen font-sans transition-colors duration-500 bg-cover bg-center bg-fixed ${
-        wallpapers[wallpaper] || wallpapers.default
+        viewMode === "minimal"
+          ? isDarkMode
+            ? "bg-slate-950"
+            : "bg-gray-100"
+          : wallpapers[wallpaper] || wallpapers.default
       }`}
       onClick={() => {
         if (editingPlan) savePlanEdit();
@@ -1613,48 +1629,64 @@ export default function WeeklyScheduler() {
       )}
 
       {/* Header */}
-      <div className="max-w-[1600px] mx-auto p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 bg-opacity-90 backdrop-blur-md">
-        <div className="flex items-center gap-4 flex-grow">
-          {/* --- ENHANCED HEADER SHIBA --- */}
-          <ShibaAvatar
-            eyePosition={50}
-            action={shibaAction}
-            message={shibaMessage}
-            size="small"
-            className="mx-0"
-            isSad={shibaAction === "sad"}
-          />
+      <div
+        className={`max-w-[1600px] mx-auto p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 bg-opacity-90 backdrop-blur-md ${
+          viewMode === "minimal" ? "border-b mb-4" : ""
+        }`}
+      >
+        {viewMode !== "minimal" ? (
+          <div className="flex items-center gap-4 flex-grow">
+            {/* --- ENHANCED HEADER SHIBA --- */}
+            <ShibaAvatar
+              eyePosition={50}
+              action={shibaAction}
+              message={shibaMessage}
+              size="small"
+              className="mx-0"
+              isSad={shibaAction === "sad"}
+            />
 
-          <div className="flex flex-col flex-grow max-w-md">
-            <div className="flex justify-between items-end mb-1">
-              <span
-                className={`text-xs font-bold uppercase tracking-widest ${baseTextColor}`}
-              >
-                Level {weeklyStats.level}
-              </span>
-              <div className="flex gap-2 items-center">
-                <span className={`text-[10px] font-medium ${mutedTextColor}`}>
-                  {weeklyStats.currentXP} XP
-                </span>
+            <div className="flex flex-col flex-grow max-w-md">
+              <div className="flex justify-between items-end mb-1">
                 <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold uppercase`}
+                  className={`text-xs font-bold uppercase tracking-widest ${baseTextColor}`}
                 >
-                  {user.username}
+                  Level {weeklyStats.level}
                 </span>
+                <div className="flex gap-2 items-center">
+                  <span className={`text-[10px] font-medium ${mutedTextColor}`}>
+                    {weeklyStats.currentXP} XP
+                  </span>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold uppercase`}
+                  >
+                    {user.username}
+                  </span>
+                </div>
+              </div>
+              <div
+                className={`h-2.5 w-full rounded-full overflow-hidden ${
+                  isDarkMode ? "bg-black/30" : "bg-white/50"
+                }`}
+              >
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
+                  style={{
+                    width: `${Math.max(weeklyStats.progressToNext, 5)}%`,
+                  }}
+                />
               </div>
             </div>
-            <div
-              className={`h-2.5 w-full rounded-full overflow-hidden ${
-                isDarkMode ? "bg-black/30" : "bg-white/50"
-              }`}
-            >
-              <div
-                className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
-                style={{ width: `${Math.max(weeklyStats.progressToNext, 5)}%` }}
-              />
-            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className={`flex-grow font-bold text-xl ${
+              isDarkMode ? "text-white" : "text-gray-800"
+            }`}
+          >
+            Simple View
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
           <div className="relative shrink-0">
@@ -1674,6 +1706,17 @@ export default function WeeklyScheduler() {
               isDarkMode ? "bg-slate-800" : "bg-white/80 shadow-sm"
             }`}
           >
+            <button
+              onClick={() => setViewMode("minimal")}
+              className={`p-1.5 rounded-md ${
+                viewMode === "minimal"
+                  ? "bg-indigo-100 text-indigo-600"
+                  : "text-gray-400"
+              }`}
+              title="Minimal List View"
+            >
+              <List className="w-4 h-4" />
+            </button>
             <button
               onClick={() => setViewMode("slide")}
               className={`p-1.5 rounded-md ${
@@ -1794,12 +1837,16 @@ export default function WeeklyScheduler() {
               ref={(el) => (dayRefs.current[day] = el)}
               className={`${cardClasses(day)} ${
                 isDragging ? "opacity-90" : ""
-              } ${isToday ? "ring-4 ring-indigo-400/50" : ""}`}
+              } ${
+                isToday && viewMode !== "minimal"
+                  ? "ring-4 ring-indigo-400/50"
+                  : ""
+              }`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDropOnEmpty(e, day)}
               data-droppable-day={day}
             >
-              {items.length > 0 && (
+              {items.length > 0 && viewMode !== "minimal" && (
                 <div
                   className={`p-2 border-b ${
                     isDarkMode
@@ -1823,15 +1870,23 @@ export default function WeeklyScheduler() {
               )}
               {/* ... (Rest of Card Content) ... */}
               <div
-                className={`p-4 border-b ${
+                className={`p-2 border-b ${
                   isDarkMode ? "border-slate-700" : "border-gray-100"
-                } bg-opacity-50`}
+                } ${
+                  viewMode === "minimal"
+                    ? "bg-transparent"
+                    : "bg-opacity-50 p-4"
+                }`}
               >
-                <div className="flex justify-between items-center mb-2">
+                <div
+                  className={`flex justify-between items-center ${
+                    viewMode === "minimal" ? "mb-1" : "mb-2"
+                  }`}
+                >
                   <h2
-                    className={`font-bold uppercase tracking-wider text-lg flex items-center gap-2 ${
-                      isDarkMode ? "text-white" : "text-gray-800"
-                    }`}
+                    className={`font-bold uppercase tracking-wider flex items-center gap-2 ${
+                      viewMode === "minimal" ? "text-sm" : "text-lg"
+                    } ${isDarkMode ? "text-white" : "text-gray-800"}`}
                   >
                     {day}{" "}
                     {isToday && (
@@ -1839,7 +1894,7 @@ export default function WeeklyScheduler() {
                         Today
                       </span>
                     )}{" "}
-                    {isComplete && (
+                    {isComplete && viewMode !== "minimal" && (
                       <Trophy
                         className="w-5 h-5 text-yellow-500 animate-bounce"
                         fill="currentColor"
@@ -1854,66 +1909,78 @@ export default function WeeklyScheduler() {
                     {items.length}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {dayData.plans.map((plan, idx) => (
-                    <div
-                      key={plan.id}
-                      className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer border flex gap-1 items-center ${
-                        idx === dayData.activePlanIndex
-                          ? isDarkMode
-                            ? "bg-slate-700 border-slate-600 text-white"
-                            : "bg-white shadow-sm border-gray-200"
-                          : "border-transparent text-gray-400"
-                      }`}
-                      onClick={() => setActivePlan(day, idx)}
-                      onDoubleClick={() =>
-                        startEditingPlan(day, idx, plan.name)
-                      }
+
+                {/* --- PLANS NAV --- */}
+                {viewMode !== "minimal" && (
+                  <div className="flex flex-wrap gap-1">
+                    {dayData.plans.map((plan, idx) => (
+                      <div
+                        key={plan.id}
+                        className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer border flex gap-1 items-center ${
+                          idx === dayData.activePlanIndex
+                            ? isDarkMode
+                              ? "bg-slate-700 border-slate-600 text-white"
+                              : "bg-white shadow-sm border-gray-200"
+                            : "border-transparent text-gray-400"
+                        }`}
+                        onClick={() => setActivePlan(day, idx)}
+                        onDoubleClick={() =>
+                          startEditingPlan(day, idx, plan.name)
+                        }
+                      >
+                        {editingPlan?.day === day &&
+                        editingPlan?.planIndex === idx ? (
+                          <input
+                            autoFocus
+                            className={`w-12 bg-transparent outline-none border-b border-indigo-500 ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                            value={editPlanValue}
+                            onChange={(e) => setEditPlanValue(e.target.value)}
+                            onBlur={savePlanEdit}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && savePlanEdit()
+                            }
+                          />
+                        ) : (
+                          plan.name
+                        )}
+                        {dayData.plans.length > 1 && (
+                          <X
+                            onClick={(e) => handleRemovePlan(day, idx, e)}
+                            className="w-3 h-3 opacity-50 hover:opacity-100 hover:text-red-500"
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => handleAddPlan(day)}
+                      className="p-1 rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
                     >
-                      {editingPlan?.day === day &&
-                      editingPlan?.planIndex === idx ? (
-                        <input
-                          autoFocus
-                          className={`w-12 bg-transparent outline-none border-b border-indigo-500 ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          }`}
-                          value={editPlanValue}
-                          onChange={(e) => setEditPlanValue(e.target.value)}
-                          onBlur={savePlanEdit}
-                          onKeyDown={(e) => e.key === "Enter" && savePlanEdit()}
-                        />
-                      ) : (
-                        plan.name
-                      )}
-                      {dayData.plans.length > 1 && (
-                        <X
-                          onClick={(e) => handleRemovePlan(day, idx, e)}
-                          className="w-3 h-3 opacity-50 hover:opacity-100 hover:text-red-500"
-                        />
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => handleAddPlan(day)}
-                    className="p-1 rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div
                 className={`flex-grow overflow-y-auto ${
                   viewMode === "landscape" || viewMode === "slide"
                     ? "p-3"
+                    : viewMode === "minimal"
+                    ? "p-2"
                     : "p-4 min-h-[150px]"
                 }`}
               >
-                <ul className="space-y-2">
+                <ul
+                  className={`${
+                    viewMode === "minimal" ? "space-y-1" : "space-y-2"
+                  }`}
+                >
                   {items.map((item, index) => (
                     <li
                       key={item.id}
-                      draggable
+                      draggable={viewMode !== "minimal"}
                       onDragStart={(e) =>
                         handleDragStart(
                           e,
@@ -1949,18 +2016,29 @@ export default function WeeklyScheduler() {
                         }
                         openEditModal(day, item);
                       }}
-                      className={`group flex gap-2 p-3 rounded-xl border shadow-sm cursor-pointer active:scale-95 transition-all select-none ${getTaskStyles(
-                        item.color,
-                        isDarkMode
-                      )} ${item.completed ? "opacity-60" : ""}`}
+                      className={
+                        viewMode === "minimal"
+                          ? `flex gap-2 items-start py-1 border-b border-dashed last:border-0 ${
+                              isDarkMode
+                                ? "border-slate-800 hover:bg-slate-800"
+                                : "border-gray-100 hover:bg-gray-50"
+                            }`
+                          : `group flex gap-2 p-3 rounded-xl border shadow-sm cursor-pointer active:scale-95 transition-all select-none ${getTaskStyles(
+                              item.color,
+                              isDarkMode
+                            )} ${item.completed ? "opacity-60" : ""}`
+                      }
                     >
-                      <div className="drag-handle touch-none mt-1 p-1 -m-1">
-                        <GripVertical
-                          className={`w-4 h-4 ${
-                            isDarkMode ? "text-slate-500" : "text-gray-400"
-                          }`}
-                        />
-                      </div>
+                      {viewMode !== "minimal" && (
+                        <div className="drag-handle touch-none mt-1 p-1 -m-1">
+                          <GripVertical
+                            className={`w-4 h-4 ${
+                              isDarkMode ? "text-slate-500" : "text-gray-400"
+                            }`}
+                          />
+                        </div>
+                      )}
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1972,27 +2050,47 @@ export default function WeeklyScheduler() {
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
-                        className={`relative z-10 mt-0.5 w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
+                        className={`relative z-10 rounded border flex items-center justify-center transition-colors ${
+                          viewMode === "minimal"
+                            ? "w-4 h-4 mt-0.5" // Smaller box for minimal view
+                            : "w-6 h-6 mt-0.5 rounded-md"
+                        } ${
                           item.completed
                             ? "bg-green-500 border-green-500 text-white"
                             : "border-gray-300 hover:border-gray-400"
                         }`}
                       >
-                        <Check
-                          className={`w-4 h-4 ${
-                            item.completed ? "opacity-100" : "opacity-0"
-                          }`}
-                        />
+                        {/* Simple check or empty box */}
+                        {item.completed && <Check className="w-3 h-3" />}
                       </button>
+
                       <div className="flex-grow min-w-0">
                         <div
-                          className={`text-sm font-medium leading-snug break-words ${
+                          className={`font-medium leading-snug break-words ${
+                            viewMode === "minimal" ? "text-xs" : "text-sm"
+                          } ${
                             item.completed ? "line-through opacity-70" : ""
+                          } ${
+                            isDarkMode && viewMode === "minimal"
+                              ? "text-slate-300"
+                              : ""
                           }`}
                         >
                           {item.text}
+                          {/* INLINE TIME FOR MINIMAL VIEW */}
+                          {viewMode === "minimal" && item.time && (
+                            <span
+                              className={`ml-2 text-[9px] ${
+                                isDarkMode ? "text-slate-500" : "text-gray-400"
+                              }`}
+                            >
+                              {item.time}
+                            </span>
+                          )}
                         </div>
-                        {item.time && (
+
+                        {/* NORMAL TIME BADGE (HIDDEN IN MINIMAL) */}
+                        {item.time && viewMode !== "minimal" && (
                           <div
                             className={`text-[10px] mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
                               isDarkMode ? "bg-black/20" : "bg-white/50"
@@ -2020,13 +2118,18 @@ export default function WeeklyScheduler() {
               >
                 <button
                   onClick={() => openAddModal(day)}
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 font-medium rounded-xl text-sm active:scale-95 transition-all ${
-                    isDarkMode
-                      ? "bg-slate-700 text-indigo-300"
-                      : "bg-white shadow-sm text-indigo-600 border border-gray-200"
+                  className={`w-full flex items-center justify-center gap-2 font-medium rounded-xl text-sm active:scale-95 transition-all ${
+                    viewMode === "minimal"
+                      ? "py-1.5 text-xs border border-dashed text-gray-400 hover:text-gray-600 border-gray-300"
+                      : `py-2.5 ${
+                          isDarkMode
+                            ? "bg-slate-700 text-indigo-300"
+                            : "bg-white shadow-sm text-indigo-600 border border-gray-200"
+                        }`
                   }`}
                 >
-                  <PlusCircle className="w-4 h-4" /> Add Task
+                  <PlusCircle className="w-4 h-4" />{" "}
+                  {viewMode === "minimal" ? "Add" : "Add Task"}
                 </button>
               </div>
             </div>
