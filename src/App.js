@@ -872,12 +872,23 @@ export default function WeeklyScheduler() {
         }
         const plans = [{ id: `p_${dayKey}_main`, name: "Main", items: [] }];
         tabSettings.forEach((setting) => {
-          if (setting.days.includes(dayKey))
+          if (setting.days.includes(dayKey)) {
+            // AUTO-POPULATE FROM TEMPLATE
+            const templateItems = setting.templateItems || [];
+            const initialItems = templateItems.map((text, idx) => ({
+              id: Date.now() + idx + Math.random(),
+              text: text,
+              completed: false,
+              time: "",
+              color: "default",
+            }));
+
             plans.push({
               id: `p_${dayKey}_custom_${setting.id}`,
               name: setting.name,
-              items: [],
+              items: initialItems,
             });
+          }
         });
         newSchedule[dayKey] = { activePlanIndex: 0, plans: plans };
       });
@@ -900,11 +911,32 @@ export default function WeeklyScheduler() {
       { Monthly: schedule.Monthly },
       monthlyStats.percent
     );
+
+    // BUILD MONTHLY PLANS (Main + Template Tabs)
+    const plans = [{ id: "m1", name: "Main", items: [] }];
+    tabSettings.forEach((setting) => {
+      if (setting.days.includes("Monthly")) {
+        const templateItems = setting.templateItems || [];
+        const initialItems = templateItems.map((text, idx) => ({
+          id: Date.now() + idx + Math.random(),
+          text: text,
+          completed: false,
+          time: "",
+          color: "default",
+        }));
+        plans.push({
+          id: `p_Monthly_custom_${setting.id}`,
+          name: setting.name,
+          items: initialItems,
+        });
+      }
+    });
+
     setSchedule((prev) => ({
       ...prev,
       Monthly: {
         activePlanIndex: 0,
-        plans: [{ id: "m1", name: "Main", items: [] }],
+        plans: plans,
       },
     }));
     setOpenMenu(null);
@@ -947,17 +979,10 @@ export default function WeeklyScheduler() {
   };
 
   const handleClearAll = () => {
-    // Replaced window.confirm with modal
-    setOpenMenu(null);
-    setActionModal("clear");
-  };
-
-  const performClearAll = () => {
+    if (!window.confirm("Delete ALL data?")) return;
     setSchedule(initialSchedule);
-    setActionModal(null);
-    showNotification("success", "All data cleared.");
+    setOpenMenu(null);
   };
-
   const handleExport = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
@@ -2193,24 +2218,42 @@ export default function WeeklyScheduler() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {daysOrder
-                            .filter((d) => d !== "Monthly")
-                            .map((day) => (
-                              <button
-                                key={day}
-                                onClick={() => toggleTabDay(tab.id, day)}
-                                className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                                  tab.days.includes(day)
-                                    ? "bg-indigo-500 text-white border-indigo-600"
-                                    : isDarkMode
-                                    ? "bg-slate-800 border-slate-600 hover:bg-slate-700"
-                                    : "bg-white border-gray-300 hover:bg-gray-100"
-                                }`}
-                              >
-                                {day.slice(0, 3)}
-                              </button>
-                            ))}
+                        <textarea
+                          className={`w-full p-2 mt-2 rounded text-xs font-mono border min-h-[60px] ${
+                            isDarkMode
+                              ? "bg-slate-800 border-slate-600 text-slate-300"
+                              : "bg-white border-gray-300 text-gray-600"
+                          }`}
+                          placeholder="Template List (One item per line)"
+                          value={
+                            Array.isArray(tab.templateItems)
+                              ? tab.templateItems.join("\n")
+                              : ""
+                          }
+                          onChange={(e) =>
+                            updateTabSetting(
+                              tab.id,
+                              "templateItems",
+                              e.target.value.split("\n")
+                            )
+                          }
+                        />
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {daysOrder.map((day) => (
+                            <button
+                              key={day}
+                              onClick={() => toggleTabDay(tab.id, day)}
+                              className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                                tab.days.includes(day)
+                                  ? "bg-indigo-500 text-white border-indigo-600"
+                                  : isDarkMode
+                                  ? "bg-slate-800 border-slate-600 hover:bg-slate-700"
+                                  : "bg-white border-gray-300 hover:bg-gray-100"
+                              }`}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     ))}
