@@ -152,7 +152,7 @@ const ShibaAvatar = ({
     <div
       className={`${containerClass} relative transition-all duration-300 z-10 flex items-center justify-center ${className}`}
     >
-      {/* --- SPEECH BUBBLE (UPDATED POSITION) --- */}
+      {/* --- SPEECH BUBBLE --- */}
       {message && (
         <div className="absolute top-0 left-full ml-4 bg-white border-2 border-indigo-100 text-indigo-600 font-bold px-4 py-3 rounded-2xl rounded-bl-none shadow-lg animate-bounce z-50 text-xs md:text-sm w-48 text-center leading-tight">
           {message}
@@ -218,7 +218,7 @@ const ShibaAvatar = ({
             strokeLinejoin="round"
             className={`transition-transform duration-300 origin-bottom-right ${
               isPerking ? "rotate-[-10deg] translate-y-[-5px]" : ""
-            } ${isSad ? "rotate-[10deg] translate-y-[5px]" : ""}`} // Ears droop when sad
+            } ${isSad ? "rotate-[10deg] translate-y-[5px]" : ""}`}
           />
           <path
             d="M100 45 L110 15 Q90 20 75 35"
@@ -228,7 +228,7 @@ const ShibaAvatar = ({
             strokeLinejoin="round"
             className={`transition-transform duration-300 origin-bottom-left ${
               isPerking ? "rotate-[10deg] translate-y-[-5px]" : ""
-            } ${isSad ? "rotate-[-10deg] translate-y-[5px]" : ""}`} // Ears droop when sad
+            } ${isSad ? "rotate-[-10deg] translate-y-[5px]" : ""}`}
           />
 
           {/* Face Base */}
@@ -342,9 +342,9 @@ const ShibaAvatar = ({
             transform: isHiding
               ? `translate(12px, -45px)`
               : isDigging
-              ? "translate(0, 15px)" // Lower for digging
+              ? "translate(0, 15px)"
               : isSad
-              ? "translate(0, 40px)" // Droop low for sadness
+              ? "translate(0, 40px)"
               : isBarking || isPerking
               ? `translate(0, ${jumpOffset}px)`
               : "translate(0, 10px)",
@@ -377,9 +377,9 @@ const ShibaAvatar = ({
                 ? "translate(12px, -20px)"
                 : "translate(-12px, -45px)"
               : isDigging
-              ? "translate(0, 5px)" // Offset form left paw for digging effect
+              ? "translate(0, 5px)"
               : isSad
-              ? "translate(0, 40px)" // Droop low for sadness
+              ? "translate(0, 40px)"
               : isBarking || isPerking
               ? `translate(0, ${jumpOffset}px)`
               : "translate(0, 10px)",
@@ -427,7 +427,6 @@ export default function WeeklyScheduler() {
 
   // Helper function to trigger reactions
   const triggerShibaReaction = (actionType, messageType) => {
-    // Clear any existing timer
     if (reactionTimeout.current) clearTimeout(reactionTimeout.current);
 
     setShibaAction(actionType);
@@ -435,7 +434,6 @@ export default function WeeklyScheduler() {
       setShibaMessage(getRandomPhrase(messageType));
     }
 
-    // Reset after 3 seconds
     reactionTimeout.current = setTimeout(() => {
       setShibaAction("idle");
       setShibaMessage(null);
@@ -512,7 +510,7 @@ export default function WeeklyScheduler() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // --- DATA LOADING & SYNC (Keep your existing Firebase logic here) ---
+  // --- DATA LOADING & SYNC ---
   useEffect(() => {
     if (!user) return;
     setIsDataLoaded(false);
@@ -1919,14 +1917,16 @@ export default function WeeklyScheduler() {
                             item.id
                           );
                         }}
-                        className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center ${
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className={`relative z-10 mt-0.5 w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
                           item.completed
                             ? "bg-green-500 border-green-500 text-white"
-                            : "border-gray-300"
+                            : "border-gray-300 hover:border-gray-400"
                         }`}
                       >
                         <Check
-                          className={`w-3.5 h-3.5 ${
+                          className={`w-4 h-4 ${
                             item.completed ? "opacity-100" : "opacity-0"
                           }`}
                         />
