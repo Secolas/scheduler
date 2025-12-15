@@ -137,6 +137,7 @@ const ShibaAvatar = ({
   message = null,
   size = "large",
   className = "mx-auto mb-6",
+  level = 1, // NEW: Level prop to determine accessories
 }) => {
   // Map eye position (0-100) to movement range (-8px to +8px)
   const eyeOffset = (eyePosition / 100) * 16 - 8;
@@ -148,6 +149,11 @@ const ShibaAvatar = ({
   const isBarking = action === "bark";
   const isDigging = action === "dig";
   const isPerking = action === "perk";
+
+  // Accessory Logic
+  const hasSunglasses = level >= 2;
+  const hasBandana = level >= 5;
+  const hasCrown = level >= 10;
 
   // Position Config
   const jumpOffset = -15;
@@ -211,7 +217,7 @@ const ShibaAvatar = ({
           </g>
         )}
 
-        {/* --- HEAD --- */}
+        {/* --- HEAD GROUP --- */}
         <g className="transition-transform duration-300">
           {/* Ears */}
           <path
@@ -250,6 +256,18 @@ const ShibaAvatar = ({
             d="M60 70 Q25 70 20 85 Q15 100 60 112 Q105 100 100 85 Q95 70 60 70"
             fill="#FFFDF5"
           />
+
+          {/* ACCESSORY: Bandana (Level 5+) */}
+          {hasBandana && (
+            <path
+              d="M30 95 Q60 120 90 95 L80 90 Q60 105 40 90 Z"
+              fill="#EF4444"
+              stroke="#B91C1C"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              className="animate-in fade-in zoom-in duration-500"
+            />
+          )}
 
           {/* Eyebrows */}
           <g
@@ -297,6 +315,34 @@ const ShibaAvatar = ({
             <circle cx="80" cy="63" r="2" fill="white" />
           </g>
 
+          {/* ACCESSORY: Sunglasses (Level 2+) */}
+          {hasSunglasses && !isSad && !isHiding && (
+            <g className="animate-in slide-in-from-top-4 fade-in duration-500">
+              {/* Lenses */}
+              <path
+                d="M30 60 H54 V68 Q54 74 42 74 Q30 74 30 68 Z"
+                fill="#111827"
+                stroke="#000"
+                strokeWidth="1"
+              />
+              <path
+                d="M66 60 H90 V68 Q90 74 78 74 Q66 74 66 68 Z"
+                fill="#111827"
+                stroke="#000"
+                strokeWidth="1"
+              />
+              {/* Bridge */}
+              <line
+                x1="54"
+                y1="62"
+                x2="66"
+                y2="62"
+                stroke="#000"
+                strokeWidth="2"
+              />
+            </g>
+          )}
+
           {/* Snout/Mouth */}
           <ellipse cx="60" cy="82" rx="7" ry="5" fill="#3E2723" />
 
@@ -332,6 +378,19 @@ const ShibaAvatar = ({
               strokeWidth="0.5"
               className="animate-pulse origin-top"
               style={{ transform: "translateY(5px)" }}
+            />
+          )}
+
+          {/* ACCESSORY: Crown (Level 10+) */}
+          {hasCrown && (
+            <path
+              d="M40 30 L40 10 L50 20 L60 5 L70 20 L80 10 L80 30 Z"
+              fill="#FBBF24"
+              stroke="#D97706"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              className="animate-bounce"
+              style={{ animationDuration: "2s" }}
             />
           )}
         </g>
@@ -1644,6 +1703,7 @@ export default function WeeklyScheduler() {
               size="small"
               className="mx-0"
               isSad={shibaAction === "sad"}
+              level={weeklyStats.level} // PASS LEVEL HERE
             />
 
             <div className="flex flex-col flex-grow max-w-md">
