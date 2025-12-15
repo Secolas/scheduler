@@ -947,10 +947,17 @@ export default function WeeklyScheduler() {
   };
 
   const handleClearAll = () => {
-    if (!window.confirm("Delete ALL data?")) return;
-    setSchedule(initialSchedule);
+    // Replaced window.confirm with modal
     setOpenMenu(null);
+    setActionModal("clear");
   };
+
+  const performClearAll = () => {
+    setSchedule(initialSchedule);
+    setActionModal(null);
+    showNotification("success", "All data cleared.");
+  };
+
   const handleExport = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
@@ -1501,7 +1508,11 @@ export default function WeeklyScheduler() {
             } animate-in zoom-in-95`}
           >
             <h3 className="text-xl font-bold mb-2">
-              {actionModal === "reset" ? "Reset Tasks" : "Start New..."}
+              {actionModal === "reset"
+                ? "Reset Tasks"
+                : actionModal === "clear"
+                ? "Clear All Data"
+                : "Start New..."}
             </h3>
             <p
               className={`text-sm mb-6 ${
@@ -1510,6 +1521,8 @@ export default function WeeklyScheduler() {
             >
               {actionModal === "reset"
                 ? "Which tasks would you like to uncheck and reset to 'incomplete'?"
+                : actionModal === "clear"
+                ? "This will permanently delete all tasks and reset the schedule. This cannot be undone."
                 : "This will archive current tasks to history and start a fresh period."}
             </p>
             <div className="flex flex-col gap-3">
@@ -1528,6 +1541,13 @@ export default function WeeklyScheduler() {
                     Reset Monthly Tasks
                   </button>
                 </>
+              ) : actionModal === "clear" ? (
+                <button
+                  onClick={performClearAll}
+                  className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg active:scale-95"
+                >
+                  Yes, Delete Everything
+                </button>
               ) : (
                 <>
                   <button
